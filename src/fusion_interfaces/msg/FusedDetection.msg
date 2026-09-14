@@ -1,0 +1,5 @@
+Detection2D detection
+geometry_msgs/Point position
+float32 distance_m
+uint32 lidar_point_count
+uint32 lidar_points_before_filter

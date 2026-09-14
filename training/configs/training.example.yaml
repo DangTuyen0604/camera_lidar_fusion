@@ -1,0 +1,7 @@
+model: yolov8n.pt
+data: training/configs/dataset.example.yaml
+epochs: 50
+imgsz: 640
+batch: 16
+project: runs/detect
+name: camera_lidar

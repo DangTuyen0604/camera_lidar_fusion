@@ -1,0 +1,5 @@
+std_msgs/Header header
+bool healthy
+float32 camera_lidar_offset_ms
+uint64 synchronized_pairs
+uint64 dropped_messages

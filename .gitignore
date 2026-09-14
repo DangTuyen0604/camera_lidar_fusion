@@ -1,0 +1,14 @@
+build/
+install/
+log/
+data/kitti/
+models/*.onnx
+vendor/
+__pycache__/
+*.pyc
+.pytest_cache/
+bags/*/
+!bags/README.md
+training/datasets/*
+!training/datasets/README.md
+runs/

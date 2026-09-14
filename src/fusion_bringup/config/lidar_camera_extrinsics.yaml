@@ -1,0 +1,16 @@
+parent_frame: velodyne
+child_frame: camera_optical_frame
+convention: child_pose_in_parent
+
+# Pose of camera_optical_frame expressed in the Velodyne frame. This is the
+# inverse of R_rect_00 * Tr_velo_to_cam used by the projection equation.
+translation:
+  x: 0.272903426812
+  y: -0.001969265863
+  z: -0.072285900515
+
+rotation:
+  x: -0.494777254825
+  y: 0.499969809249
+  z: -0.499912794597
+  w: 0.505284925310

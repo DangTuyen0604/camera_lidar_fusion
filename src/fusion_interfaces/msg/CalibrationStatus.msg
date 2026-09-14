@@ -1,0 +1,6 @@
+std_msgs/Header header
+bool valid
+float32 projection_error_px
+float32 translation_drift_m
+float32 rotation_drift_deg
+string message

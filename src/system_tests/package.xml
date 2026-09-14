@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>system_tests</name>
+  <version>0.1.0</version>
+  <description>Integration tests for perception and navigation pipelines.</description>
+  <maintainer email="tuyen@example.com">tuyen</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <test_depend>ament_pytest</test_depend>
+  <test_depend>launch_testing</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
