@@ -14,12 +14,12 @@ workspace này.
 
 - `kitti_ros2_player` (Python): đọc KITTI, tạo message, calibration, projection
   và static TF.
-- `perception_core` (C++): thuật toán perception lõi và `sensor_sync_node`
-  khi hệ thống đang chạy.
+- `perception_core` (C++): calibration, projection, depth estimator,
+  `sensor_sync_node` và typed `object_fusion_node`.
 - `fusion_bringup`: launch file và cấu hình RViz.
 - `fusion_interfaces`: message ROS 2 dùng chung cho detection, calibration,
   synchronization và metrics.
-- `yolo_detector`: detector ONNX cùng logic hợp nhất detection với point cloud.
+- `yolo_detector`: detector ONNX publish `Detection2DArray`.
 - `navigation_bringup` và `navigation_bridge`: tài nguyên Nav2 và điểm mở rộng
   để chuyển fused detection thành vật cản.
 - `system_tests`: khung integration test cấp hệ thống.
@@ -27,7 +27,7 @@ workspace này.
 ## Cài đặt
 
 ```bash
-cd /home/tuyen/Vinmotion/camera_lidar_fusion
+cd camera_lidar_fusion
 ./scripts/install_dependencies.sh
 ```
 
@@ -87,6 +87,25 @@ ros2 launch fusion_bringup projection_demo.launch.py \
 RViz dùng fixed frame `velodyne`, hiển thị point cloud, cây TF và ảnh
 projection đã tô màu theo khoảng cách.
 
+## Chạy perception demo hoàn chỉnh
+
+Đặt model ONNX tại `models/yolov8n-opencv.onnx`, sau đó chạy:
+
+```bash
+./scripts/run_perception_demo.sh
+```
+
+Dataset và model ở vị trí khác được truyền qua launch argument:
+
+```bash
+./scripts/run_perception_demo.sh \
+  dataset_root:=/path/to/2011_09_26 \
+  model_path:=/path/to/yolov8n-opencv.onnx
+```
+
+RViz hiển thị ảnh đồng bộ, projection LiDAR, bbox YOLO, bbox kèm depth/XYZ
+và marker 3D. Có thể chạy không giao diện bằng `use_rviz:=false`.
+
 ## Topic và frame
 
 | Topic | Type | Frame |
@@ -95,6 +114,14 @@ projection đã tô màu theo khoảng cách.
 | `/kitti/camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `camera_optical_frame` |
 | `/kitti/velodyne/points` | `sensor_msgs/msg/PointCloud2` | `velodyne` |
 | `/kitti/camera/lidar_overlay` | `sensor_msgs/msg/Image` | `camera_optical_frame` |
+| `/fusion/synced/image` | `sensor_msgs/msg/Image` | `camera_optical_frame` |
+| `/fusion/synced/camera_info` | `sensor_msgs/msg/CameraInfo` | `camera_optical_frame` |
+| `/fusion/synced/points` | `sensor_msgs/msg/PointCloud2` | `velodyne` |
+| `/fusion/sync_status` | `fusion_interfaces/msg/SyncStatus` | `camera_optical_frame` |
+| `/detections_2d` | `fusion_interfaces/msg/Detection2DArray` | `camera_optical_frame` |
+| `/fusion/detections_3d` | `fusion_interfaces/msg/FusedDetectionArray` | `camera_optical_frame` |
+| `/fusion/annotated_image` | `sensor_msgs/msg/Image` | `camera_optical_frame` |
+| `/fusion/object_markers` | `visualization_msgs/msg/MarkerArray` | `camera_optical_frame` |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | `velodyne → camera_optical_frame` |
 
 Point cloud có bốn field `float32`: `x`, `y`, `z`, `intensity`.
@@ -182,15 +209,18 @@ Bag chứa ảnh gốc, CameraInfo, point cloud, overlay và `/tf_static`.
 
 ## Kiểm tra khi chạy
 
-`sensor_sync_node` đăng ký cả bốn topic. Nó báo lỗi nếu frame ID sai và log mỗi
-50 frame đã có timestamp khớp tuyệt đối. Một số lệnh kiểm tra thêm:
+`sensor_sync_node` đồng bộ Image, CameraInfo và PointCloud2 trong tolerance cấu
+hình, publish ba topic `/fusion/synced/*` cùng `SyncStatus`. `object_fusion_node`
+lookup TF tại timestamp của detection, từ chối cloud sai frame và vẫn publish
+detection với `valid=false` khi không ước lượng được depth. Một số lệnh kiểm tra:
 
 ```bash
 ros2 topic list -t
 ros2 topic hz /kitti/velodyne/points
+ros2 topic echo /fusion/sync_status --once
+ros2 topic echo /fusion/detections_3d --once
 ros2 topic echo /tf_static --once
 ros2 run tf2_ros tf2_echo velodyne camera_optical_frame
 ```
 
-Overlay chỉ được tính khi có subscriber để tránh tốn CPU. RViz,
-`sensor_sync_node` hoặc rosbag recorder đều tạo subscriber này.
+Overlay và ảnh debug YOLO chỉ được tính khi có subscriber để tránh tốn CPU.

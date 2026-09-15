@@ -1,5 +1,5 @@
 int32 class_id
-string label
+string class_name
 float32 confidence
 float32 x_min
 float32 y_min

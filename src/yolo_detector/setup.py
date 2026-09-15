@@ -29,7 +29,6 @@ setup(
         'console_scripts': [
             'yolo_detector = '
             'yolo_detector.yolo_detector_node:main',
-            'fusion_node = yolo_detector.yolo_detector_node:fusion_main',
         ],
     },
 )

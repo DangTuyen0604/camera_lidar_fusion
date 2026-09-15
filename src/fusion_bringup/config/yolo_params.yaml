@@ -1,0 +1,7 @@
+yolo_detector_node:
+  ros__parameters:
+    image_topic: /fusion/synced/image
+    detections_topic: /detections_2d
+    debug_image_topic: /yolo/debug/image
+    confidence_threshold: 0.35
+    iou_threshold: 0.45

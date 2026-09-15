@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from fusion_interfaces.msg import Detection2D as Detection2DMessage
+from fusion_interfaces.msg import Detection2DArray
 import numpy as np
 
 
@@ -38,6 +40,42 @@ def detection_from_dict(data):
             int(bbox['y2']),
         ),
     )
+
+
+def detection_to_message(detection):
+    message = Detection2DMessage()
+    message.class_id = detection.class_id
+    message.class_name = detection.label
+    message.confidence = float(detection.confidence)
+    message.x_min = float(detection.bbox[0])
+    message.y_min = float(detection.bbox[1])
+    message.x_max = float(detection.bbox[2])
+    message.y_max = float(detection.bbox[3])
+    return message
+
+
+def detection_from_message(message):
+    return Detection(
+        class_id=message.class_id,
+        label=message.class_name,
+        confidence=message.confidence,
+        bbox=(
+            int(round(message.x_min)),
+            int(round(message.y_min)),
+            int(round(message.x_max)),
+            int(round(message.y_max)),
+        ),
+    )
+
+
+def detection_array_to_message(detections, header, inference_ms):
+    message = Detection2DArray()
+    message.header = header
+    message.inference_ms = float(inference_ms)
+    message.detections = [
+        detection_to_message(detection) for detection in detections
+    ]
+    return message
 
 
 @dataclass(frozen=True)

@@ -33,6 +33,7 @@ def generate_launch_description():
     calibration_config_dir = Path(
         get_package_share_directory('fusion_bringup')
     ) / 'config'
+    sync_parameters = str(calibration_config_dir / 'sync_params.yaml')
 
     player = Node(
         package='kitti_ros2_player',
@@ -67,11 +68,12 @@ def generate_launch_description():
         }],
     )
 
-    sync_audit = Node(
+    sensor_sync = Node(
         package='perception_core',
         executable='sensor_sync_node',
-        name='sensor_sync',
+        name='sensor_sync_node',
         output='screen',
+        parameters=[sync_parameters],
     )
 
     rviz = Node(
@@ -116,6 +118,6 @@ def generate_launch_description():
             ),
         ),
         player,
-        sync_audit,
+        sensor_sync,
         rviz,
     ])

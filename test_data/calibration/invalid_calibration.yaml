@@ -1,0 +1,6 @@
+image_width: 0
+image_height: 80
+camera_matrix:
+  rows: 2
+  cols: 2
+  data: [1.0, 0.0, 0.0, 1.0]

@@ -1,5 +1,6 @@
+std_msgs/Header header
 Detection2D detection
 geometry_msgs/Point position
-float32 distance_m
+float32 depth
 uint32 lidar_point_count
-uint32 lidar_points_before_filter
+bool valid

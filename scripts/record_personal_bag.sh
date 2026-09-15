@@ -33,4 +33,12 @@ ros2 bag record \
   /kitti/camera/camera_info \
   /kitti/velodyne/points \
   /kitti/camera/lidar_overlay \
+  /fusion/synced/image \
+  /fusion/synced/camera_info \
+  /fusion/synced/points \
+  /fusion/sync_status \
+  /detections_2d \
+  /fusion/detections_3d \
+  /fusion/annotated_image \
+  /fusion/object_markers \
   /tf_static

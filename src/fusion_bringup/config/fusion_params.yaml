@@ -1,0 +1,24 @@
+object_fusion_node:
+  ros__parameters:
+    detections_topic: /detections_2d
+    image_topic: /fusion/synced/image
+    pointcloud_topic: /fusion/synced/points
+    camera_info_topic: /fusion/synced/camera_info
+    fused_detections_topic: /fusion/detections_3d
+    annotated_image_topic: /fusion/annotated_image
+    marker_topic: /fusion/object_markers
+
+    camera_frame_id: camera_optical_frame
+    lidar_frame_id: velodyne
+
+    min_lidar_points: 3
+    bbox_shrink_ratio: 0.7
+    min_depth: 1.0
+    max_depth: 80.0
+    depth_cluster_gap: 1.0
+    outlier_threshold: 2.0
+    minimum_outlier_window: 0.25
+    sync_tolerance_ms: 50.0
+    tf_timeout_ms: 20.0
+    cache_size: 30
+    marker_lifetime_sec: 0.35

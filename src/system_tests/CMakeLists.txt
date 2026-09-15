@@ -5,4 +5,16 @@ find_package(ament_cmake REQUIRED)
 
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  find_package(launch_testing_ament_cmake REQUIRED)
+
+  ament_add_pytest_test(test_topics test/test_topics.py)
+  ament_add_pytest_test(
+    test_navigation_pipeline
+    test/test_navigation_pipeline.py
+  )
+  add_launch_test(test/test_perception_pipeline.py TIMEOUT 90)
+endif()
+
 ament_package()

@@ -1,0 +1,11 @@
+sensor_sync_node:
+  ros__parameters:
+    image_topic: /kitti/camera/image_raw
+    camera_info_topic: /kitti/camera/camera_info
+    pointcloud_topic: /kitti/velodyne/points
+    synced_image_topic: /fusion/synced/image
+    synced_camera_info_topic: /fusion/synced/camera_info
+    synced_pointcloud_topic: /fusion/synced/points
+    status_topic: /fusion/sync_status
+    queue_size: 20
+    sync_tolerance_ms: 50.0

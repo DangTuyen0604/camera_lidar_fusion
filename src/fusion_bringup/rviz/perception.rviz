@@ -36,7 +36,7 @@ Visualization Manager:
       Enabled: true
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: Velodyne PointCloud
+      Name: Synchronized PointCloud
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 2
@@ -47,8 +47,33 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /kitti/velodyne/points
+        Value: /fusion/synced/points
       Use Fixed Frame: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Fused Object Markers
+      Namespaces:
+        fused_labels: true
+        fused_objects: true
+      Topic:
+        Depth: 10
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /fusion/object_markers
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Synchronized Camera
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /fusion/synced/image
     - Class: rviz_default_plugins/Image
       Enabled: true
       Max Value: 1
@@ -62,6 +87,32 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /kitti/camera/lidar_overlay
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: YOLO Detections
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /yolo/debug/image
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Fused Detections 3D
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /fusion/annotated_image
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

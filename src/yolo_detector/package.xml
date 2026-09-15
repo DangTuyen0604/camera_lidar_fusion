@@ -3,7 +3,7 @@
   <name>yolo_detector</name>
   <version>0.1.0</version>
 
-  <description>YOLO 2D detection and KITTI camera-LiDAR fusion.</description>
+  <description>YOLO 2D detector publishing typed ROS interfaces.</description>
 
   <maintainer email="tuyen@example.com">tuyen</maintainer>
   <license>Apache-2.0</license>
@@ -11,10 +11,9 @@
   <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>cv_bridge</exec_depend>
-  <exec_depend>kitti_ros2_player</exec_depend>
+  <depend>fusion_interfaces</depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-opencv</exec_depend>
 
