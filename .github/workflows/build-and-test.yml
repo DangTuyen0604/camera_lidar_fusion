@@ -44,7 +44,7 @@ jobs:
           python3 -m venv --system-site-packages .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -r requirements.txt
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/python -c "import cv2, matplotlib, numpy, onnxruntime, pandas, pytest, ultralytics, yaml"
 
       - name: Build all packages
         shell: bash
