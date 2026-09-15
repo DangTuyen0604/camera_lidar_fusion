@@ -1,0 +1,10 @@
+scenarios:
+  - name: aligned
+    delay_ms: 0.0
+    expected_healthy: true
+  - name: near_limit
+    delay_ms: 45.0
+    expected_healthy: true
+  - name: rejected
+    delay_ms: 75.0
+    expected_healthy: false

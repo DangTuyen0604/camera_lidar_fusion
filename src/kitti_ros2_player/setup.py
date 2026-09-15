@@ -4,7 +4,7 @@ package_name = 'kitti_ros2_player'
 
 setup(
     name=package_name,
-    version='0.0.1',
+    version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         (
@@ -18,8 +18,8 @@ setup(
     ],
     install_requires=['PyYAML', 'setuptools'],
     zip_safe=True,
-    maintainer='tuyen',
-    maintainer_email='tuyen@example.com',
+    maintainer='Nguyen Dang Tuyen',
+    maintainer_email='nguyendangtuyen062004@gmail.com',
     description='ROS 2 player for KITTI camera and LiDAR data.',
     license='Apache-2.0',
     tests_require=['pytest'],

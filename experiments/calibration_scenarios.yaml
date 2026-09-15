@@ -1,0 +1,10 @@
+scenarios:
+  - name: baseline
+    translation_m: [0.0, 0.0, 0.0]
+    rotation_deg: [0.0, 0.0, 0.0]
+  - name: translation_warning
+    translation_m: [0.12, 0.0, 0.0]
+    rotation_deg: [0.0, 0.0, 0.0]
+  - name: rotation_warning
+    translation_m: [0.0, 0.0, 0.0]
+    rotation_deg: [0.0, 0.0, 1.5]

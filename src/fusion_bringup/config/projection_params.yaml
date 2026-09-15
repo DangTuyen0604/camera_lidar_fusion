@@ -1,0 +1,9 @@
+lidar_projection_node:
+  ros__parameters:
+    image_topic: /fusion/synced/image
+    camera_info_topic: /fusion/synced/camera_info
+    pointcloud_topic: /fusion/synced/points
+    overlay_topic: /fusion/lidar_overlay
+    minimum_depth: 1.0
+    maximum_depth: 80.0
+    point_radius: 2

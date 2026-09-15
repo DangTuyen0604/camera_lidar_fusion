@@ -1,0 +1,2 @@
+scenario,samples,mean_ms,median_ms,p95_ms,maximum_ms
+schema_example,1,0.000,0.000,0.000,0.000

@@ -2,8 +2,8 @@
 """Create deterministic train/validation file lists for a YOLO dataset."""
 
 import argparse
-import random
 from pathlib import Path
+import random
 
 
 def main():

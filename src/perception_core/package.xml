@@ -4,7 +4,7 @@
   <version>0.1.0</version>
   <description>C++ core algorithms and runtime nodes for camera-LiDAR perception.</description>
 
-  <maintainer email="tuyen@example.com">tuyen</maintainer>
+  <maintainer email="nguyendangtuyen062004@gmail.com">Nguyen Dang Tuyen</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

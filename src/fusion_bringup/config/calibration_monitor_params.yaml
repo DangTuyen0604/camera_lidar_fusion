@@ -1,0 +1,6 @@
+calibration_monitor_node:
+  ros__parameters:
+    period_sec: 1.0
+    maximum_projection_error_px: 3.0
+    maximum_translation_drift_m: 0.10
+    maximum_rotation_drift_deg: 1.0

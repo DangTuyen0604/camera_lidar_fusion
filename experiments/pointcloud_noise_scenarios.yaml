@@ -1,0 +1,10 @@
+scenarios:
+  - name: clean
+    standard_deviation_m: 0.0
+    dropout_probability: 0.0
+  - name: light_noise
+    standard_deviation_m: 0.02
+    dropout_probability: 0.02
+  - name: heavy_noise
+    standard_deviation_m: 0.10
+    dropout_probability: 0.15

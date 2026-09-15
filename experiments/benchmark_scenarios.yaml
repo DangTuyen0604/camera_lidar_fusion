@@ -1,1 +1,13 @@
-scenarios: []
+scenarios:
+  - name: unit_tests
+    runs: 3
+    timeout_sec: 300
+    command:
+      - colcon
+      - test
+      - --packages-select
+      - perception_core
+  - name: package_inventory
+    runs: 10
+    timeout_sec: 30
+    command: [colcon, list]

@@ -1,0 +1,67 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: lint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ament-lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up ROS 2 Jazzy
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: jazzy
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
+
+      - name: Build packages
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --symlink-install --event-handlers console_direct+
+
+      - name: Lint standalone and ament_python sources
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          ament_flake8 src/kitti_ros2_player src/yolo_detector benchmarks tools training
+          ament_pep257 src/kitti_ros2_player src/yolo_detector benchmarks tools training
+
+      - name: Run ament linters
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          test_status=0
+          colcon test --event-handlers console_direct+ \
+            --ctest-args -R 'copyright|cppcheck|cpplint|flake8|lint_cmake|pep257|uncrustify|xmllint' \
+            || test_status=$?
+          result_status=0
+          colcon test-result --verbose || result_status=$?
+          if [[ "$test_status" -ne 0 ]]; then exit "$test_status"; fi
+          exit "$result_status"
+
+      - name: Upload lint results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ament-lint-results
+          path: build/**/test_results/**/*.xml
+          if-no-files-found: warn
+          retention-days: 14
