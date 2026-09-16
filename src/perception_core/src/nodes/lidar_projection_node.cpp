@@ -42,6 +42,9 @@ Eigen::Matrix4d transformMatrix(const geometry_msgs::msg::TransformStamped & tra
   matrix(0, 3) = transform.transform.translation.x;
   matrix(1, 3) = transform.transform.translation.y;
   matrix(2, 3) = transform.transform.translation.z;
+  if (!matrix.allFinite()) {
+    throw std::runtime_error("TF contains non-finite values");
+  }
   return matrix;
 }
 
@@ -50,9 +53,22 @@ std::vector<PointXYZI> readPoints(const sensor_msgs::msg::PointCloud2 & cloud)
   sensor_msgs::PointCloud2ConstIterator<float> x(cloud, "x");
   sensor_msgs::PointCloud2ConstIterator<float> y(cloud, "y");
   sensor_msgs::PointCloud2ConstIterator<float> z(cloud, "z");
-  sensor_msgs::PointCloud2ConstIterator<float> intensity(cloud, "intensity");
   std::vector<PointXYZI> points;
   points.reserve(static_cast<std::size_t>(cloud.width) * cloud.height);
+
+  const bool has_intensity = std::any_of(
+    cloud.fields.begin(), cloud.fields.end(),
+    [](const sensor_msgs::msg::PointField & field) {
+      return field.name == "intensity";
+    });
+  if (!has_intensity) {
+    for (; x != x.end(); ++x, ++y, ++z) {
+      points.push_back({Eigen::Vector3d(*x, *y, *z), 0.0});
+    }
+    return points;
+  }
+
+  sensor_msgs::PointCloud2ConstIterator<float> intensity(cloud, "intensity");
   for (; x != x.end(); ++x, ++y, ++z, ++intensity) {
     points.push_back({Eigen::Vector3d(*x, *y, *z), *intensity});
   }
@@ -121,6 +137,14 @@ private:
       return;
     }
     try {
+      if (camera_info->width == 0 || camera_info->height == 0 ||
+        image->width != camera_info->width || image->height != camera_info->height)
+      {
+        throw std::runtime_error("Image and CameraInfo dimensions must be positive and equal");
+      }
+      if (camera_info->header.frame_id.empty() || cloud->header.frame_id.empty()) {
+        throw std::runtime_error("Camera and LiDAR frame IDs must be non-empty");
+      }
       CalibrationData calibration;
       calibration.image_width = static_cast<int>(camera_info->width);
       calibration.image_height = static_cast<int>(camera_info->height);

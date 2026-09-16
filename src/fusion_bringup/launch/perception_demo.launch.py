@@ -20,6 +20,7 @@ def generate_launch_description():
     use_rviz = LaunchConfiguration('use_rviz')
     loop = LaunchConfiguration('loop')
     publish_rate = LaunchConfiguration('publish_rate')
+    startup_delay_sec = LaunchConfiguration('startup_delay_sec')
     timestamp_policy = LaunchConfiguration('timestamp_policy')
     calibration_format = LaunchConfiguration('calibration_format')
 
@@ -37,6 +38,7 @@ def generate_launch_description():
             'use_rviz': 'false',
             'loop': loop,
             'publish_rate': publish_rate,
+            'startup_delay_sec': startup_delay_sec,
             'timestamp_policy': timestamp_policy,
             'calibration_format': calibration_format,
         }.items(),
@@ -85,6 +87,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_rviz', default_value='true'),
         DeclareLaunchArgument('loop', default_value='true'),
         DeclareLaunchArgument('publish_rate', default_value='10.0'),
+        DeclareLaunchArgument('startup_delay_sec', default_value='0.0'),
         DeclareLaunchArgument('timestamp_policy', default_value='rebase_kitti'),
         DeclareLaunchArgument('calibration_format', default_value='kitti'),
         projection_pipeline,

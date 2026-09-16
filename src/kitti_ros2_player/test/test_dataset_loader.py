@@ -116,6 +116,9 @@ def test_timestamp_parsing_and_rebase(tmp_path):
     assert sequence.max_absolute_sensor_offset_ns == 10_000_000
     assert sequence.cycle_duration_ns == 200_000_000
     assert sequence.rebased_timestamp_ns(1, 0, 1_000) == 100_001_000
+    end_of_first_cycle = sequence.rebased_timestamp_ns(1, 0, 1_000)
+    start_of_second_cycle = sequence.rebased_timestamp_ns(0, 1, 1_000)
+    assert start_of_second_cycle > end_of_first_cycle
 
     image_path.write_text(
         '2011-09-26 13:04:32.445808896\n'
@@ -156,3 +159,13 @@ def test_projection_and_overlay():
         depths,
     )
     assert np.any(overlay != 0)
+
+
+def test_pointcloud_loader_rejects_non_finite_values(tmp_path):
+    write_pointcloud(
+        tmp_path / '0000000000.bin',
+        [[1.0, 2.0, np.nan, 0.5]],
+    )
+    loader = PointCloudLoader(tmp_path)
+    with pytest.raises(RuntimeError, match='NaN or Inf'):
+        loader.next_pointcloud()

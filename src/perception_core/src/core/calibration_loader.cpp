@@ -2,10 +2,15 @@
 
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include <Eigen/Geometry>
+#include <Eigen/LU>
 #include <yaml-cpp/yaml.h>
 
 #include "perception_core/coordinate_transform.hpp"
@@ -75,6 +80,110 @@ YAML::Node loadYaml(const std::string & path)
   }
 }
 
+std::unordered_map<std::string, std::vector<double>> loadKittiValues(
+  const std::string & path)
+{
+  if (!std::filesystem::is_regular_file(path)) {
+    throw std::runtime_error("KITTI calibration not found: " + path);
+  }
+  std::ifstream stream(path);
+  if (!stream) {
+    throw std::runtime_error("Cannot open KITTI calibration: " + path);
+  }
+
+  std::unordered_map<std::string, std::vector<double>> values;
+  std::string line;
+  std::size_t line_number = 0;
+  while (std::getline(stream, line)) {
+    ++line_number;
+    const auto separator = line.find(':');
+    if (separator == std::string::npos) {
+      if (line.find_first_not_of(" \t\r") == std::string::npos) {
+        continue;
+      }
+      throw std::runtime_error(
+              "Invalid KITTI calibration line " + std::to_string(line_number));
+    }
+    const std::string key = line.substr(0, separator);
+    std::istringstream row(line.substr(separator + 1));
+    std::vector<double> parsed;
+    double value = 0.0;
+    while (row >> value) {
+      if (!std::isfinite(value)) {
+        throw std::runtime_error("KITTI calibration contains a non-finite value: " + key);
+      }
+      parsed.push_back(value);
+    }
+    if (!row.eof()) {
+      throw std::runtime_error("Invalid numeric value in KITTI calibration: " + key);
+    }
+    if (!values.emplace(key, std::move(parsed)).second) {
+      throw std::runtime_error("Duplicate KITTI calibration key: " + key);
+    }
+  }
+  return values;
+}
+
+const std::vector<double> & requireKittiValues(
+  const std::unordered_map<std::string, std::vector<double>> & values,
+  const std::vector<std::string> & keys,
+  std::size_t expected_size)
+{
+  for (const auto & key : keys) {
+    const auto iterator = values.find(key);
+    if (iterator == values.end()) {
+      continue;
+    }
+    if (iterator->second.size() != expected_size) {
+      throw std::runtime_error(
+              "KITTI calibration key " + key + " must contain " +
+              std::to_string(expected_size) + " values");
+    }
+    return iterator->second;
+  }
+  throw std::runtime_error("Missing KITTI calibration key: " + keys.front());
+}
+
+template<int Rows, int Cols>
+Eigen::Matrix<double, Rows, Cols> matrixFromRowMajor(
+  const std::vector<double> & values)
+{
+  Eigen::Matrix<double, Rows, Cols> result;
+  for (int row = 0; row < Rows; ++row) {
+    for (int column = 0; column < Cols; ++column) {
+      result(row, column) = values[static_cast<std::size_t>(row * Cols + column)];
+    }
+  }
+  return result;
+}
+
+void validateCalibration(const CalibrationData & calibration)
+{
+  if (calibration.image_width <= 0 || calibration.image_height <= 0) {
+    throw std::runtime_error("Calibration image dimensions must be positive");
+  }
+  if (!calibration.camera_matrix.allFinite() ||
+    std::abs(calibration.camera_matrix.determinant()) < 1.0e-12)
+  {
+    throw std::runtime_error("Camera matrix must be finite and non-singular");
+  }
+  if (!calibration.projection_matrix.allFinite() ||
+    std::abs(calibration.projection_matrix.leftCols<3>().determinant()) < 1.0e-12)
+  {
+    throw std::runtime_error("Projection matrix must be finite and non-singular");
+  }
+  if (!CoordinateTransform::isRigidTransform(calibration.rectification_matrix) ||
+    !CoordinateTransform::isRigidTransform(calibration.lidar_to_camera))
+  {
+    throw std::runtime_error("Calibration transforms must be rigid homogeneous transforms");
+  }
+  if (calibration.lidar_frame.empty() || calibration.camera_frame.empty() ||
+    calibration.lidar_frame == calibration.camera_frame)
+  {
+    throw std::runtime_error("Calibration frames must be non-empty and distinct");
+  }
+}
+
 }  // namespace
 
 CalibrationData CalibrationLoader::loadFromYaml(
@@ -135,6 +244,33 @@ CalibrationData CalibrationLoader::loadFromYaml(
   lidar_from_camera.topLeftCorner<3, 3>() = quaternion.toRotationMatrix();
   lidar_from_camera.topRightCorner<3, 1>() = translation;
   result.lidar_to_camera = CoordinateTransform::inverse(lidar_from_camera);
+  validateCalibration(result);
+  return result;
+}
+
+CalibrationData CalibrationLoader::loadFromKitti(
+  const std::string & calibration_path,
+  int image_width,
+  int image_height,
+  const std::string & lidar_frame,
+  const std::string & camera_frame)
+{
+  const auto values = loadKittiValues(calibration_path);
+  CalibrationData result;
+  result.image_width = image_width;
+  result.image_height = image_height;
+  result.lidar_frame = lidar_frame;
+  result.camera_frame = camera_frame;
+  result.projection_matrix = matrixFromRowMajor<3, 4>(
+    requireKittiValues(values, {"P2", "P_rect_02"}, 12));
+  result.camera_matrix = result.projection_matrix.leftCols<3>();
+  result.rectification_matrix = Eigen::Matrix4d::Identity();
+  result.rectification_matrix.topLeftCorner<3, 3>() = matrixFromRowMajor<3, 3>(
+    requireKittiValues(values, {"R0_rect", "R_rect_00"}, 9));
+  result.lidar_to_camera = Eigen::Matrix4d::Identity();
+  result.lidar_to_camera.topRows<3>() = matrixFromRowMajor<3, 4>(
+    requireKittiValues(values, {"Tr_velo_to_cam", "Tr"}, 12));
+  validateCalibration(result);
   return result;
 }
 

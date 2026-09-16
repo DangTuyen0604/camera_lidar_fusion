@@ -100,7 +100,6 @@ DepthEstimate ObjectDepthEstimator::estimate(
       return left->depth < right->depth;
     });
 
-  std::vector<const ProjectedPoint *> cluster;
   std::size_t cluster_begin = 0;
   for (std::size_t index = 1; index <= candidates.size(); ++index) {
     const bool cluster_ended = index == candidates.size() ||
@@ -108,55 +107,55 @@ DepthEstimate ObjectDepthEstimator::estimate(
     if (!cluster_ended) {
       continue;
     }
-    if (index - cluster_begin >= parameters_.min_lidar_points) {
-      cluster.assign(candidates.begin() + cluster_begin, candidates.begin() + index);
-      break;
+    if (index - cluster_begin < parameters_.min_lidar_points) {
+      cluster_begin = index;
+      continue;
     }
-    cluster_begin = index;
-  }
-  if (cluster.size() < parameters_.min_lidar_points) {
-    return {};
-  }
 
-  std::vector<double> cluster_depths;
-  cluster_depths.reserve(cluster.size());
-  for (const ProjectedPoint * point : cluster) {
-    cluster_depths.push_back(point->depth);
-  }
-  const double median_depth = median(cluster_depths);
-  std::vector<double> deviations;
-  deviations.reserve(cluster.size());
-  for (const double depth : cluster_depths) {
-    deviations.push_back(std::abs(depth - median_depth));
-  }
-  const double mad = median(std::move(deviations));
-  const double threshold = std::max(
-    parameters_.minimum_outlier_window,
-    parameters_.outlier_threshold * 1.4826 * mad);
-
-  std::vector<const ProjectedPoint *> filtered;
-  filtered.reserve(cluster.size());
-  for (const ProjectedPoint * point : cluster) {
-    if (std::abs(point->depth - median_depth) <= threshold) {
-      filtered.push_back(point);
+    const std::vector<const ProjectedPoint *> cluster(
+      candidates.begin() + cluster_begin, candidates.begin() + index);
+    std::vector<double> cluster_depths;
+    cluster_depths.reserve(cluster.size());
+    for (const ProjectedPoint * point : cluster) {
+      cluster_depths.push_back(point->depth);
     }
-  }
-  if (filtered.size() < parameters_.min_lidar_points) {
-    return {};
-  }
+    const double median_depth = median(cluster_depths);
+    std::vector<double> deviations;
+    deviations.reserve(cluster.size());
+    for (const double depth : cluster_depths) {
+      deviations.push_back(std::abs(depth - median_depth));
+    }
+    const double mad = median(std::move(deviations));
+    const double threshold = std::max(
+      parameters_.minimum_outlier_window,
+      parameters_.outlier_threshold * 1.4826 * mad);
 
-  std::vector<double> filtered_depths;
-  filtered_depths.reserve(filtered.size());
-  for (const ProjectedPoint * point : filtered) {
-    filtered_depths.push_back(point->depth);
-  }
+    std::vector<const ProjectedPoint *> filtered;
+    filtered.reserve(cluster.size());
+    for (const ProjectedPoint * point : cluster) {
+      if (std::abs(point->depth - median_depth) <= threshold) {
+        filtered.push_back(point);
+      }
+    }
+    if (filtered.size() < parameters_.min_lidar_points) {
+      cluster_begin = index;
+      continue;
+    }
 
-  DepthEstimate result;
-  result.valid = true;
-  result.position = medianPosition(filtered);
-  result.depth = median(std::move(filtered_depths));
-  result.lidar_point_count = filtered.size();
-  return result;
+    std::vector<double> filtered_depths;
+    filtered_depths.reserve(filtered.size());
+    for (const ProjectedPoint * point : filtered) {
+      filtered_depths.push_back(point->depth);
+    }
+
+    DepthEstimate result;
+    result.valid = true;
+    result.position = medianPosition(filtered);
+    result.depth = median(std::move(filtered_depths));
+    result.lidar_point_count = filtered.size();
+    return result;
+  }
+  return {};
 }
 
 const DepthEstimatorParameters & ObjectDepthEstimator::parameters() const noexcept

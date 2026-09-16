@@ -2,6 +2,7 @@
 #define PERCEPTION_CORE__TYPES_HPP_
 
 #include <cstddef>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -47,7 +48,9 @@ struct BoundingBox2D
 
   bool valid() const
   {
-    return x_max > x_min && y_max > y_min;
+    return std::isfinite(x_min) && std::isfinite(y_min) &&
+           std::isfinite(x_max) && std::isfinite(y_max) &&
+           x_max > x_min && y_max > y_min;
   }
 };
 

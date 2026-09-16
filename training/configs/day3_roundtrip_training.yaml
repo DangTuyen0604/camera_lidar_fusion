@@ -1,0 +1,14 @@
+model: models/yolov8n.pt
+data: training/configs/day3_roundtrip_dataset.yaml
+epochs: 1
+imgsz: 320
+batch: 2
+device: cpu
+workers: 0
+pretrained: true
+project: runs/detect
+name: day3_roundtrip
+exist_ok: true
+seed: 42
+deterministic: true
+plots: false

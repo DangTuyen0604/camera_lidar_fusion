@@ -3,11 +3,14 @@ install/
 log/
 data/kitti/
 models/*.onnx
+models/*.pt
+models/*.metadata.json
 vendor/
 __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+.venv-day3/
 .coverage
 htmlcov/
 bags/*/

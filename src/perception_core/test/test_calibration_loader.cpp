@@ -57,6 +57,45 @@ TEST(CalibrationLoader, RejectsUnexpectedFrame)
     std::runtime_error);
 }
 
+TEST(CalibrationLoader, RejectsUnexpectedCameraFrame)
+{
+  EXPECT_THROW(
+    perception_core::CalibrationLoader::loadFromYaml(
+      testFile("valid_intrinsics.yaml"), testFile("valid_extrinsics.yaml"),
+      "velodyne", "wrong_camera_frame"),
+    std::runtime_error);
+}
+
+TEST(CalibrationLoader, RejectsWrongExtrinsicConvention)
+{
+  EXPECT_THROW(
+    perception_core::CalibrationLoader::loadFromYaml(
+      testFile("valid_intrinsics.yaml"), testFile("wrong_convention.yaml")),
+    std::runtime_error);
+}
+
+TEST(CalibrationLoader, LoadsKittiObjectCalibration)
+{
+  const auto calibration = perception_core::CalibrationLoader::loadFromKitti(
+    testFile("kitti_calibration.txt"), 1242, 375);
+
+  EXPECT_EQ(calibration.image_width, 1242);
+  EXPECT_EQ(calibration.image_height, 375);
+  EXPECT_DOUBLE_EQ(calibration.projection_matrix(0, 0), 721.5377);
+  EXPECT_DOUBLE_EQ(calibration.projection_matrix(0, 2), 609.5593);
+  EXPECT_DOUBLE_EQ(calibration.lidar_to_camera(0, 3), -0.004069766);
+  EXPECT_TRUE(perception_core::CoordinateTransform::isRigidTransform(
+      calibration.lidar_to_camera));
+}
+
+TEST(CalibrationLoader, RejectsIncompleteKittiCalibration)
+{
+  EXPECT_THROW(
+    perception_core::CalibrationLoader::loadFromKitti(
+      testFile("invalid_kitti_calibration.txt"), 1242, 375),
+    std::runtime_error);
+}
+
 TEST(CalibrationLoader, LoadsRepositoryKittiCalibration)
 {
   const auto calibration = perception_core::CalibrationLoader::loadFromYaml(

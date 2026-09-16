@@ -114,6 +114,7 @@ class KittiPlayerNode(Node):
         )
         self.declare_parameter('loop', True)
         self.declare_parameter('publish_rate', 10.0)
+        self.declare_parameter('startup_delay_sec', 0.0)
         self.declare_parameter('timestamp_policy', 'rebase_kitti')
         self.declare_parameter('max_sensor_time_offset_sec', 0.05)
         self.declare_parameter('max_projection_depth', 80.0)
@@ -142,6 +143,7 @@ class KittiPlayerNode(Node):
         extrinsics_yaml = self.get_parameter('extrinsics_yaml').value
         loop = self.get_parameter('loop').value
         publish_rate = self.get_parameter('publish_rate').value
+        startup_delay_sec = self.get_parameter('startup_delay_sec').value
         self.timestamp_policy = self.get_parameter(
             'timestamp_policy'
         ).value
@@ -157,9 +159,14 @@ class KittiPlayerNode(Node):
         self.camera_frame_id = self.get_parameter('camera_frame_id').value
         self.lidar_frame_id = self.get_parameter('lidar_frame_id').value
 
-        if publish_rate <= 0.0:
+        if not np.isfinite(publish_rate) or publish_rate <= 0.0:
             raise RuntimeError(
                 f'publish_rate must be greater than zero: {publish_rate}'
+            )
+        if not np.isfinite(startup_delay_sec) or startup_delay_sec < 0.0:
+            raise RuntimeError(
+                'startup_delay_sec must be finite and non-negative: '
+                f'{startup_delay_sec}'
             )
 
         if self.max_projection_depth <= 0.1:
@@ -275,21 +282,41 @@ class KittiPlayerNode(Node):
         self.published_frame_count = 0
         self.ros_start_ns = self.get_clock().now().nanoseconds
 
-        self.timer = self.create_timer(
-            1.0 / publish_rate,
-            self.publish_image,
-        )
+        self.publish_period_sec = 1.0 / publish_rate
+        self.timer = None
+        self.startup_timer = None
+        if startup_delay_sec > 0.0:
+            self.startup_timer = self.create_timer(
+                startup_delay_sec,
+                self.start_publishing,
+            )
+        else:
+            self.start_publishing()
 
         self.get_logger().info(
             f'Publishing {len(self.image_loader)} synchronized KITTI '
             f'image/point-cloud frames at {publish_rate:.1f} Hz '
             f'(loop={loop}, calibration={self.calibration_format})'
         )
+        if startup_delay_sec > 0.0:
+            self.get_logger().info(
+                f'First frame delayed by {startup_delay_sec:.1f}s '
+                'for subscriber discovery'
+            )
         self.get_logger().info(
             'Timestamp policy: '
             f'{self.timestamp_policy}; maximum original sensor offset: '
             f'{maximum_offset_sec * 1000.0:.3f} ms'
         )
+
+    def start_publishing(self):
+        if self.startup_timer is not None:
+            self.startup_timer.cancel()
+        if self.timer is None:
+            self.timer = self.create_timer(
+                self.publish_period_sec,
+                self.publish_image,
+            )
 
     def publish_static_transform(self):
         # KITTI calibration maps Velodyne coordinates into the rectified

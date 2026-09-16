@@ -43,7 +43,7 @@ def main():
         raise SystemExit('Source ROS and install/setup.bash before running')
 
     recorder = subprocess.Popen([
-        'ros2', 'bag', 'record', '-o', str(args.output), *TOPICS,
+        'ros2', 'bag', 'record', '-o', str(args.output), '--topics', *TOPICS,
     ])
     player = None
     try:
@@ -52,7 +52,7 @@ def main():
             'ros2', 'launch', 'fusion_bringup', 'projection_demo.launch.py',
             f'dataset_root:={args.dataset_root.resolve()}',
             f'publish_rate:={args.publish_rate}',
-            'loop:=false', 'use_rviz:=false',
+            'startup_delay_sec:=3.0', 'loop:=false', 'use_rviz:=false',
         ])
         deadline = time.monotonic() + args.duration
         while time.monotonic() < deadline and player.poll() is None:

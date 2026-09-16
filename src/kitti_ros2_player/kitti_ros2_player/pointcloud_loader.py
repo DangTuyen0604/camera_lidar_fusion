@@ -76,6 +76,10 @@ class PointCloudLoader:
             )
 
         points = raw_points.reshape(-1, 4)
+        if not np.isfinite(points).all():
+            raise RuntimeError(
+                f'KITTI point cloud contains NaN or Inf: {path}'
+            )
         self.frame_index += 1
 
         if (
@@ -94,6 +98,8 @@ def create_pointcloud2(points, stamp, frame_id='velodyne'):
         raise RuntimeError(
             f'Expected point cloud shape (N, 4), got {points.shape}'
         )
+    if not np.isfinite(points).all():
+        raise RuntimeError('Velodyne points must contain finite values')
 
     points = np.ascontiguousarray(points, dtype='<f4')
 
@@ -198,7 +204,8 @@ def project_velodyne_to_image_details(
         np.isfinite(pixel_x)
         & np.isfinite(pixel_y)
         & np.isfinite(depths)
-        & (depths > min_depth)
+        & np.isfinite(points[:, 3])
+        & (depths >= min_depth)
         & (pixel_x >= 0.0)
         & (pixel_x < image_width)
         & (pixel_y >= 0.0)

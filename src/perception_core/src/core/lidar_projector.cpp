@@ -4,6 +4,10 @@
 #include <stdexcept>
 #include <utility>
 
+#include <Eigen/LU>
+
+#include "perception_core/coordinate_transform.hpp"
+
 namespace perception_core
 {
 
@@ -12,8 +16,9 @@ LidarProjector::LidarProjector(CalibrationData calibration)
 {
   if (calibration_.image_width <= 0 || calibration_.image_height <= 0 ||
     !calibration_.projection_matrix.allFinite() ||
-    !calibration_.rectification_matrix.allFinite() ||
-    !calibration_.lidar_to_camera.allFinite())
+    std::abs(calibration_.projection_matrix.leftCols<3>().determinant()) < 1.0e-12 ||
+    !CoordinateTransform::isRigidTransform(calibration_.rectification_matrix) ||
+    !CoordinateTransform::isRigidTransform(calibration_.lidar_to_camera))
   {
     throw std::invalid_argument("LidarProjector received invalid calibration");
   }
@@ -50,9 +55,15 @@ std::vector<ProjectedPoint> LidarProjector::project(
       point.position.x(), point.position.y(), point.position.z(), 1.0);
     const Eigen::Vector4d camera_homogeneous = rectified_from_lidar * homogeneous;
     const Eigen::Vector3d camera_point = camera_homogeneous.head<3>();
-    const double depth = camera_point.z();
-    if (!camera_point.allFinite() || depth <= min_depth ||
-      (max_depth > 0.0 && depth > max_depth))
+    if (!camera_homogeneous.allFinite() ||
+      std::abs(camera_homogeneous.w()) < 1.0e-12)
+    {
+      continue;
+    }
+    const Eigen::Vector3d normalized_camera_point = camera_point / camera_homogeneous.w();
+    const double normalized_depth = normalized_camera_point.z();
+    if (!normalized_camera_point.allFinite() || normalized_depth < min_depth ||
+      (max_depth > 0.0 && normalized_depth > max_depth))
     {
       continue;
     }
@@ -70,7 +81,8 @@ std::vector<ProjectedPoint> LidarProjector::project(
     {
       continue;
     }
-    output.push_back(ProjectedPoint{u, v, camera_point, depth, point.intensity});
+    output.push_back(ProjectedPoint{
+        u, v, normalized_camera_point, normalized_depth, point.intensity});
   }
   return output;
 }

@@ -16,6 +16,16 @@ public:
     const std::string & extrinsics_path,
     const std::string & expected_lidar_frame = "velodyne",
     const std::string & expected_camera_frame = "camera_optical_frame");
+
+  // Loads the KITTI object-detection calibration format (P2, R0_rect and
+  // Tr_velo_to_cam). The image size is not stored in that format and must be
+  // supplied by the caller.
+  static CalibrationData loadFromKitti(
+    const std::string & calibration_path,
+    int image_width,
+    int image_height,
+    const std::string & lidar_frame = "velodyne",
+    const std::string & camera_frame = "camera_optical_frame");
 };
 
 }  // namespace perception_core

@@ -20,6 +20,12 @@ def matrix_to_quaternion(rotation):
         raise RuntimeError(
             f'Expected rotation matrix shape (3, 3), got {rotation.shape}'
         )
+    if not np.isfinite(rotation).all():
+        raise RuntimeError('Rotation matrix must contain finite values')
+    if not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-6):
+        raise RuntimeError('Rotation matrix must be orthonormal')
+    if not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-6):
+        raise RuntimeError('Rotation matrix determinant must be one')
 
     trace = np.trace(rotation)
 
@@ -365,6 +371,13 @@ def load_lidar_camera_calibration(
     if translation is None or len(translation) != 3:
         raise RuntimeError('Invalid or missing Velodyne T calibration')
 
+    calibration_values = np.asarray(
+        rectification + projection + rotation + translation,
+        dtype=np.float64,
+    )
+    if not np.isfinite(calibration_values).all():
+        raise RuntimeError('KITTI calibration must contain finite values')
+
     tr_velo_to_cam = np.eye(4, dtype=np.float64)
     tr_velo_to_cam[:3, :3] = np.asarray(
         rotation,
@@ -374,12 +387,32 @@ def load_lidar_camera_calibration(
         translation,
         dtype=np.float64,
     )
+    if not np.allclose(
+        tr_velo_to_cam[:3, :3].T @ tr_velo_to_cam[:3, :3],
+        np.eye(3),
+        atol=1e-6,
+    ) or not np.isclose(
+        np.linalg.det(tr_velo_to_cam[:3, :3]),
+        1.0,
+        atol=1e-6,
+    ):
+        raise RuntimeError('Velodyne rotation must be a rigid rotation')
 
     r_rect_00 = np.eye(4, dtype=np.float64)
     r_rect_00[:3, :3] = np.asarray(
         rectification,
         dtype=np.float64,
     ).reshape(3, 3)
+    if not np.allclose(
+        r_rect_00[:3, :3].T @ r_rect_00[:3, :3],
+        np.eye(3),
+        atol=1e-6,
+    ) or not np.isclose(
+        np.linalg.det(r_rect_00[:3, :3]),
+        1.0,
+        atol=1e-6,
+    ):
+        raise RuntimeError('Rectification matrix must be a rigid rotation')
 
     p_rect_02 = np.asarray(
         projection,

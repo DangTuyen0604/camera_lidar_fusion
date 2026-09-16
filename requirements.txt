@@ -4,9 +4,10 @@
 # Keep NumPy 1.x ABI compatibility with ROS Jazzy's apt-provided cv_bridge.
 numpy>=1.26,<2
 onnxruntime>=1.20,<2
+onnx>=1.16,<1.20
 opencv-python-headless>=4.10,<5
 PyYAML>=6.0,<7
-ultralytics>=8.3,<9
+ultralytics>=8.3,<8.4
 
 # Benchmarking, plotting, and tests.
 matplotlib>=3.8,<4

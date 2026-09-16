@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -51,6 +52,20 @@ TEST(CoordinateTransform, RejectsNonRigidMatrix)
   EXPECT_FALSE(perception_core::CoordinateTransform::isRigidTransform(scale));
   EXPECT_THROW(
     perception_core::CoordinateTransform::inverse(scale), std::invalid_argument);
+}
+
+TEST(CoordinateTransform, RejectsReflectionAndNonFiniteInput)
+{
+  Eigen::Matrix4d reflection = Eigen::Matrix4d::Identity();
+  reflection(0, 0) = -1.0;
+  EXPECT_FALSE(perception_core::CoordinateTransform::isRigidTransform(reflection));
+
+  Eigen::Vector3d invalid_point = Eigen::Vector3d::Zero();
+  invalid_point.x() = std::numeric_limits<double>::infinity();
+  EXPECT_THROW(
+    perception_core::CoordinateTransform::transformPoint(
+      Eigen::Matrix4d::Identity(), invalid_point),
+    std::invalid_argument);
 }
 
 }  // namespace

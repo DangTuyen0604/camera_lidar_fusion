@@ -16,11 +16,35 @@ TEST(PointCloudFilter, AppliesBoundsIntensityAndFiniteChecks)
     {Eigen::Vector3d(0.0, 0.0, 0.0), 0.5},
     {Eigen::Vector3d(2.0, 0.0, 0.0), 0.5},
     {Eigen::Vector3d(0.0, 0.0, 0.0), 0.1},
-    {Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0), 1.0}
+    {Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0), 1.0},
+    {Eigen::Vector3d(0.0, std::numeric_limits<double>::infinity(), 0.0), 1.0},
+    {Eigen::Vector3d(0.0, 0.0, 0.0), std::numeric_limits<double>::infinity()}
     });
 
   ASSERT_EQ(result.size(), 1U);
   EXPECT_DOUBLE_EQ(result.front().intensity, 0.5);
+}
+
+TEST(PointCloudFilter, HandlesEmptyCloud)
+{
+  const perception_core::PointCloudFilter filter;
+  EXPECT_TRUE(filter.filter({}).empty());
+}
+
+TEST(PointCloudFilter, IncludesPointsOnRangeBoundaries)
+{
+  perception_core::PointCloudFilterParameters parameters;
+  parameters.minimum = Eigen::Vector3d(-1.0, -2.0, -3.0);
+  parameters.maximum = Eigen::Vector3d(1.0, 2.0, 3.0);
+  const perception_core::PointCloudFilter filter(parameters);
+
+  const auto result = filter.filter({
+    {parameters.minimum, 0.2},
+    {parameters.maximum, 0.8}
+    });
+  ASSERT_EQ(result.size(), 2U);
+  EXPECT_DOUBLE_EQ(result[0].intensity, 0.2);
+  EXPECT_DOUBLE_EQ(result[1].intensity, 0.8);
 }
 
 TEST(PointCloudFilter, KeepsHighestIntensityPointPerVoxel)
@@ -46,5 +70,16 @@ TEST(PointCloudFilter, RejectsInvalidBounds)
 {
   perception_core::PointCloudFilterParameters parameters;
   parameters.maximum.x() = parameters.minimum.x();
+  EXPECT_THROW(perception_core::PointCloudFilter filter(parameters), std::invalid_argument);
+}
+
+TEST(PointCloudFilter, RejectsInvalidVoxelAndIntensityParameters)
+{
+  perception_core::PointCloudFilterParameters parameters;
+  parameters.voxel_size = -0.1;
+  EXPECT_THROW(perception_core::PointCloudFilter filter(parameters), std::invalid_argument);
+
+  parameters.voxel_size = 0.0;
+  parameters.minimum_intensity = std::numeric_limits<double>::quiet_NaN();
   EXPECT_THROW(perception_core::PointCloudFilter filter(parameters), std::invalid_argument);
 }
