@@ -11,16 +11,21 @@
 namespace perception_core
 {
 
+enum class CalibrationHealth : unsigned char {Ok = 0, Warning = 1, Error = 2};
+
 struct CalibrationQualityThresholds
 {
   double maximum_projection_error_px{3.0};
   double maximum_translation_drift_m{0.10};
   double maximum_rotation_drift_deg{1.0};
+  double error_multiplier{2.0};
 };
 
 struct CalibrationQualityResult
 {
   bool valid{false};
+  CalibrationHealth health{CalibrationHealth::Error};
+  double alignment_score{0.0};
   double projection_error_px{0.0};
   double translation_drift_m{0.0};
   double rotation_drift_deg{0.0};

@@ -1,5 +1,13 @@
 std_msgs/Header header
+uint8 STATUS_OK=0
+uint8 STATUS_DELAYED=1
+uint8 STATUS_OUT_OF_ORDER=2
+uint8 STATUS_WRONG_FRAME=3
+uint8 status
 bool healthy
 float32 camera_lidar_offset_ms
 uint64 synchronized_pairs
 uint64 dropped_messages
+uint64 out_of_order_messages
+uint64 wrong_frame_messages
+string message

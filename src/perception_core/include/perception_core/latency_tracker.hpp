@@ -13,6 +13,7 @@ struct LatencyStatistics
   double mean_ms{0.0};
   double minimum_ms{0.0};
   double maximum_ms{0.0};
+  double percentile_50_ms{0.0};
   double percentile_95_ms{0.0};
 };
 

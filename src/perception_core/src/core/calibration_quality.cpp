@@ -38,9 +38,10 @@ CalibrationQualityEvaluator::CalibrationQualityEvaluator(
   if (!std::isfinite(thresholds_.maximum_projection_error_px) ||
     !std::isfinite(thresholds_.maximum_translation_drift_m) ||
     !std::isfinite(thresholds_.maximum_rotation_drift_deg) ||
+    !std::isfinite(thresholds_.error_multiplier) ||
     thresholds_.maximum_projection_error_px < 0.0 ||
     thresholds_.maximum_translation_drift_m < 0.0 ||
-    thresholds_.maximum_rotation_drift_deg < 0.0)
+    thresholds_.maximum_rotation_drift_deg < 0.0 || thresholds_.error_multiplier <= 1.0)
   {
     throw std::invalid_argument("Invalid calibration quality thresholds");
   }
@@ -86,11 +87,27 @@ CalibrationQualityResult CalibrationQualityEvaluator::evaluate(
       static_cast<double>(result.correspondence_count);
   }
 
-  result.valid = result.translation_drift_m <= thresholds_.maximum_translation_drift_m &&
-    result.rotation_drift_deg <= thresholds_.maximum_rotation_drift_deg &&
-    (lidar_points.empty() ||
-    (result.correspondence_count > 0 &&
-    result.projection_error_px <= thresholds_.maximum_projection_error_px));
+  const auto ratio = [](double value, double threshold) {
+      if (threshold == 0.0) {
+        return value == 0.0 ? 0.0 : std::numeric_limits<double>::infinity();
+      }
+      return value / threshold;
+    };
+  double worst_ratio = std::max(
+    ratio(result.translation_drift_m, thresholds_.maximum_translation_drift_m),
+    ratio(result.rotation_drift_deg, thresholds_.maximum_rotation_drift_deg));
+  if (!lidar_points.empty()) {
+    worst_ratio = std::max(
+      worst_ratio,
+      result.correspondence_count == 0 ? std::numeric_limits<double>::infinity() :
+      ratio(result.projection_error_px, thresholds_.maximum_projection_error_px));
+  }
+  result.alignment_score = std::isfinite(worst_ratio) ?
+    std::clamp(1.0 - worst_ratio / thresholds_.error_multiplier, 0.0, 1.0) : 0.0;
+  result.health = worst_ratio <= 1.0 ? CalibrationHealth::Ok :
+    (worst_ratio <= thresholds_.error_multiplier ? CalibrationHealth::Warning :
+    CalibrationHealth::Error);
+  result.valid = result.health == CalibrationHealth::Ok;
   return result;
 }
 

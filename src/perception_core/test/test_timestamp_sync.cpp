@@ -1,26 +1,38 @@
 #include <gtest/gtest.h>
 
-#include "perception_core/latency_tracker.hpp"
+#include "perception_core/timestamp_sync.hpp"
 
-TEST(LatencyTracker, ComputesRollingStatistics)
+using perception_core::SensorStream;
+using perception_core::SyncFault;
+using perception_core::TimestampSyncMonitor;
+
+TEST(TimestampSync, AcceptsApproximateMatchWithinTolerance)
 {
-  perception_core::LatencyTracker tracker(3);
-  tracker.observe(10.0);
-  tracker.observe(20.0);
-  tracker.observe(30.0);
-  tracker.observe(40.0);
-
-  const auto statistics = tracker.statistics();
-  EXPECT_EQ(statistics.sample_count, 3U);
-  EXPECT_DOUBLE_EQ(statistics.minimum_ms, 20.0);
-  EXPECT_DOUBLE_EQ(statistics.maximum_ms, 40.0);
-  EXPECT_DOUBLE_EQ(statistics.mean_ms, 30.0);
-  EXPECT_DOUBLE_EQ(statistics.percentile_95_ms, 40.0);
+  TimestampSyncMonitor monitor(50.0, 10, {"camera", "camera", "lidar"});
+  EXPECT_EQ(monitor.observe(SensorStream::Image, 1000000000, "camera"), SyncFault::None);
+  EXPECT_EQ(monitor.observe(SensorStream::CameraInfo, 1010000000, "camera"), SyncFault::None);
+  EXPECT_EQ(monitor.observe(SensorStream::PointCloud, 1049000000, "lidar"), SyncFault::None);
+  EXPECT_EQ(monitor.observeMatch(1000000000, 1010000000, 1049000000), SyncFault::None);
+  EXPECT_EQ(monitor.counters().synchronized_pairs, 1U);
+  EXPECT_NEAR(monitor.latestCameraLidarOffsetMs(), 49.0, 1.0e-12);
 }
 
-TEST(LatencyTracker, RejectsInvalidSamples)
+TEST(TimestampSync, DetectsDelayAboveFiftyMilliseconds)
 {
-  perception_core::LatencyTracker tracker;
-  EXPECT_THROW(tracker.observe(-1.0), std::invalid_argument);
-  EXPECT_THROW(perception_core::LatencyTracker invalid(0), std::invalid_argument);
+  TimestampSyncMonitor monitor(50.0, 10, {"camera", "camera", "lidar"});
+  monitor.observe(SensorStream::Image, 1000000000, "camera");
+  monitor.observe(SensorStream::CameraInfo, 1000000000, "camera");
+  EXPECT_EQ(monitor.observe(SensorStream::PointCloud, 1051000000, "lidar"), SyncFault::Delayed);
+  EXPECT_EQ(monitor.observeMatch(1000000000, 1000000000, 1051000000), SyncFault::Delayed);
+}
+
+TEST(TimestampSync, AccountsForOutOfOrderAndWrongFrame)
+{
+  TimestampSyncMonitor monitor(50.0, 10, {"camera", "camera", "lidar"});
+  EXPECT_EQ(monitor.observe(SensorStream::Image, 20, "camera"), SyncFault::None);
+  EXPECT_EQ(monitor.observe(SensorStream::Image, 10, "camera"), SyncFault::OutOfOrder);
+  EXPECT_EQ(monitor.observe(SensorStream::PointCloud, 20, "map"), SyncFault::WrongFrame);
+  EXPECT_EQ(monitor.counters().dropped_messages, 2U);
+  EXPECT_EQ(monitor.counters().out_of_order_messages, 1U);
+  EXPECT_EQ(monitor.counters().wrong_frame_messages, 1U);
 }

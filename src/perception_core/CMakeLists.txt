@@ -27,6 +27,7 @@ add_library(${PROJECT_NAME}
   src/core/lidar_projector.cpp
   src/core/object_depth_estimator.cpp
   src/core/pointcloud_filter.cpp
+  src/core/timestamp_sync.cpp
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_include_directories(${PROJECT_NAME}
@@ -38,6 +39,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC Eigen3::Eigen yaml-cpp)
 
 add_executable(sensor_sync_node src/nodes/sensor_sync_node.cpp)
 target_compile_features(sensor_sync_node PUBLIC cxx_std_17)
+target_link_libraries(sensor_sync_node ${PROJECT_NAME})
 ament_target_dependencies(
   sensor_sync_node
   builtin_interfaces
@@ -130,6 +132,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_timestamp_sync test/test_timestamp_sync.cpp)
   target_link_libraries(test_timestamp_sync ${PROJECT_NAME})
+
+  ament_add_gtest(test_latency_tracker test/test_latency_tracker.cpp)
+  target_link_libraries(test_latency_tracker ${PROJECT_NAME})
 endif()
 
 ament_package()

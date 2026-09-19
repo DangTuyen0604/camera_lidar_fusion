@@ -1,0 +1,8 @@
+metrics_node:
+  ros__parameters:
+    detections_topic: /detections_2d
+    fused_detections_topic: /fusion/detections_3d
+    sync_status_topic: /fusion/sync_status
+    calibration_status_topic: /fusion/calibration_status
+    metrics_topic: /fusion/metrics
+    publish_period_sec: 1.0

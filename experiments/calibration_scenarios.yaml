@@ -2,9 +2,16 @@ scenarios:
   - name: baseline
     translation_m: [0.0, 0.0, 0.0]
     rotation_deg: [0.0, 0.0, 0.0]
+    expected_state: ok
   - name: translation_warning
     translation_m: [0.12, 0.0, 0.0]
     rotation_deg: [0.0, 0.0, 0.0]
+    expected_state: warning
   - name: rotation_warning
     translation_m: [0.0, 0.0, 0.0]
     rotation_deg: [0.0, 0.0, 1.5]
+    expected_state: warning
+  - name: translation_error
+    translation_m: [0.25, 0.0, 0.0]
+    rotation_deg: [0.0, 0.0, 0.0]
+    expected_state: error

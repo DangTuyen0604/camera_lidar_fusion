@@ -49,9 +49,13 @@ LatencyStatistics LatencyTracker::statistics() const
 
   std::vector<double> sorted(samples_.begin(), samples_.end());
   std::sort(sorted.begin(), sorted.end());
-  const auto index = static_cast<std::size_t>(
-    std::ceil(0.95 * static_cast<double>(sorted.size()))) - 1U;
-  result.percentile_95_ms = sorted[index];
+  const auto percentile = [&sorted](double value) {
+      const auto index = static_cast<std::size_t>(
+        std::ceil(value * static_cast<double>(sorted.size()))) - 1U;
+      return sorted[index];
+    };
+  result.percentile_50_ms = percentile(0.50);
+  result.percentile_95_ms = percentile(0.95);
   return result;
 }
 

@@ -30,9 +30,16 @@ def main():
     output[:, :3] += generator.normal(
         0.0, args.standard_deviation, size=output[:, :3].shape
     )
+    displacement = output[:, :3] - points[keep, :3]
+    rms_displacement = float(np.sqrt(np.mean(displacement * displacement))) \
+        if len(output) else 0.0
     args.output.parent.mkdir(parents=True, exist_ok=True)
     output.astype('<f4').tofile(args.output)
-    print(f'Wrote {len(output)} of {len(points)} points to {args.output}')
+    print(
+        f'Wrote {len(output)} of {len(points)} points to {args.output}; '
+        f'RMS coordinate displacement={rms_displacement:.6f} m; '
+        f'dropout={(1.0 - len(output) / len(points)):.3%}'
+    )
 
 
 if __name__ == '__main__':

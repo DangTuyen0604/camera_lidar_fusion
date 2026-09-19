@@ -1,5 +1,10 @@
 std_msgs/Header header
+uint8 STATE_OK=0
+uint8 STATE_WARNING=1
+uint8 STATE_ERROR=2
+uint8 state
 bool valid
+float32 alignment_score
 float32 projection_error_px
 float32 translation_drift_m
 float32 rotation_drift_deg

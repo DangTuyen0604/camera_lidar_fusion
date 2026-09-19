@@ -63,6 +63,33 @@ def generate_launch_description():
         parameters=[str(config_dir / 'fusion_params.yaml')],
     )
 
+    calibration_monitor = Node(
+        package='perception_core',
+        executable='calibration_monitor_node',
+        name='calibration_monitor_node',
+        output='screen',
+        parameters=[
+            str(config_dir / 'calibration_monitor_params.yaml'),
+            {
+                'intrinsics_path': str(config_dir / 'camera_intrinsics.yaml'),
+                'reference_extrinsics_path': str(
+                    config_dir / 'lidar_camera_extrinsics.yaml'
+                ),
+                'candidate_extrinsics_path': str(
+                    config_dir / 'lidar_camera_extrinsics.yaml'
+                ),
+            },
+        ],
+    )
+
+    metrics = Node(
+        package='perception_core',
+        executable='metrics_node',
+        name='metrics_node',
+        output='screen',
+        parameters=[str(config_dir / 'metrics_params.yaml')],
+    )
+
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -93,5 +120,7 @@ def generate_launch_description():
         projection_pipeline,
         yolo,
         fusion,
+        calibration_monitor,
+        metrics,
         rviz,
     ])

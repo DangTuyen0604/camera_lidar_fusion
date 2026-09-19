@@ -31,10 +31,12 @@ public:
       "maximum_translation_drift_m", 0.10);
     thresholds.maximum_rotation_drift_deg = declare_parameter<double>(
       "maximum_rotation_drift_deg", 1.0);
+    thresholds.error_multiplier = declare_parameter<double>("error_multiplier", 2.0);
+    recovery_samples_ = declare_parameter<int>("recovery_samples", 2);
     evaluator_ = std::make_unique<CalibrationQualityEvaluator>(thresholds);
 
-    if (period_sec <= 0.0) {
-      throw std::invalid_argument("period_sec must be positive");
+    if (period_sec <= 0.0 || recovery_samples_ <= 0) {
+      throw std::invalid_argument("period_sec and recovery_samples must be positive");
     }
     publisher_ = create_publisher<fusion_interfaces::msg::CalibrationStatus>(
       "/fusion/calibration_status", 10);
@@ -60,13 +62,29 @@ private:
       const auto candidate = CalibrationLoader::loadFromYaml(
         intrinsics_path_, candidate_extrinsics_path_);
       const auto result = evaluator_->evaluate(reference, candidate);
-      status.valid = result.valid;
+      auto health = result.health;
+      if (health == CalibrationHealth::Ok) {
+        ++consecutive_healthy_;
+        if (last_health_ != CalibrationHealth::Ok && consecutive_healthy_ < recovery_samples_) {
+          health = CalibrationHealth::Warning;
+        }
+      } else {
+        consecutive_healthy_ = 0;
+      }
+      last_health_ = health;
+      status.state = static_cast<std::uint8_t>(health);
+      status.valid = health == CalibrationHealth::Ok;
+      status.alignment_score = static_cast<float>(result.alignment_score);
       status.projection_error_px = static_cast<float>(result.projection_error_px);
       status.translation_drift_m = static_cast<float>(result.translation_drift_m);
       status.rotation_drift_deg = static_cast<float>(result.rotation_drift_deg);
-      status.message = result.valid ? "calibration within thresholds" :
-        "calibration drift exceeds thresholds";
+      status.message = health == CalibrationHealth::Ok ? "calibration within thresholds" :
+        (health == CalibrationHealth::Warning ? "calibration warning or recovering" :
+        "calibration drift exceeds error threshold");
     } catch (const std::exception & error) {
+      consecutive_healthy_ = 0;
+      last_health_ = CalibrationHealth::Error;
+      status.state = fusion_interfaces::msg::CalibrationStatus::STATE_ERROR;
       status.valid = false;
       status.message = error.what();
     }
@@ -77,6 +95,9 @@ private:
   std::string reference_extrinsics_path_;
   std::string candidate_extrinsics_path_;
   std::unique_ptr<CalibrationQualityEvaluator> evaluator_;
+  int recovery_samples_{2};
+  int consecutive_healthy_{0};
+  CalibrationHealth last_health_{CalibrationHealth::Ok};
   rclcpp::Publisher<fusion_interfaces::msg::CalibrationStatus>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 };

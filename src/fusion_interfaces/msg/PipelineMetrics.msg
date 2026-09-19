@@ -2,6 +2,11 @@ std_msgs/Header header
 float32 inference_ms
 float32 fusion_ms
 float32 end_to_end_ms
+float32 end_to_end_p50_ms
+float32 end_to_end_p95_ms
 float32 processing_hz
 uint32 detection_count
 uint32 fused_detection_count
+uint64 dropped_frames
+bool calibration_healthy
+float32 calibration_alignment_score

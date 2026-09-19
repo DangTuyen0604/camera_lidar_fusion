@@ -9,3 +9,5 @@ sensor_sync_node:
     status_topic: /fusion/sync_status
     queue_size: 20
     sync_tolerance_ms: 50.0
+    camera_frame_id: camera_optical_frame
+    lidar_frame_id: velodyne

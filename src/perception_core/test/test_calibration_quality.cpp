@@ -31,6 +31,8 @@ TEST(CalibrationQuality, AcceptsMatchingCalibrationAndObservations)
     {Eigen::Vector2d(50.0, 40.0)});
 
   EXPECT_TRUE(result.valid);
+  EXPECT_EQ(result.health, perception_core::CalibrationHealth::Ok);
+  EXPECT_DOUBLE_EQ(result.alignment_score, 1.0);
   EXPECT_DOUBLE_EQ(result.projection_error_px, 0.0);
   EXPECT_EQ(result.correspondence_count, 1U);
 }
@@ -49,6 +51,7 @@ TEST(CalibrationQuality, DetectsTranslationAndRotationDrift)
   EXPECT_FALSE(result.valid);
   EXPECT_NEAR(result.translation_drift_m, 0.2, 1.0e-12);
   EXPECT_NEAR(result.rotation_drift_deg, 2.0, 1.0e-9);
+  EXPECT_EQ(result.health, perception_core::CalibrationHealth::Warning);
 }
 
 TEST(CalibrationQuality, RejectsMismatchedCorrespondences)
@@ -58,6 +61,18 @@ TEST(CalibrationQuality, RejectsMismatchedCorrespondences)
   EXPECT_THROW(
     evaluator.evaluate(value, value, {{Eigen::Vector3d::Ones(), 1.0}}, {}),
     std::invalid_argument);
+}
+
+TEST(CalibrationQuality, EscalatesLargeDriftToError)
+{
+  const auto reference = calibration();
+  auto candidate = reference;
+  candidate.lidar_to_camera(0, 3) = 0.25;
+  const perception_core::CalibrationQualityEvaluator evaluator;
+  const auto result = evaluator.evaluate(reference, candidate);
+  EXPECT_EQ(result.health, perception_core::CalibrationHealth::Error);
+  EXPECT_FALSE(result.valid);
+  EXPECT_DOUBLE_EQ(result.alignment_score, 0.0);
 }
 
 }  // namespace

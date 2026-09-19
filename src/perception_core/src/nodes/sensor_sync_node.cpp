@@ -10,6 +10,7 @@
 #include "message_filters/subscriber.hpp"
 #include "message_filters/sync_policies/approximate_time.hpp"
 #include "message_filters/synchronizer.hpp"
+#include "perception_core/timestamp_sync.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -46,6 +47,10 @@ public:
       "status_topic", "/fusion/sync_status");
     const int queue_size = declare_parameter<int>("queue_size", 20);
     sync_tolerance_ms_ = declare_parameter<double>("sync_tolerance_ms", 50.0);
+    camera_frame_id_ = declare_parameter<std::string>(
+      "camera_frame_id", "camera_optical_frame");
+    lidar_frame_id_ = declare_parameter<std::string>(
+      "lidar_frame_id", "velodyne");
 
     if (queue_size <= 0 || !std::isfinite(sync_tolerance_ms_) || sync_tolerance_ms_ < 0.0) {
       throw std::invalid_argument("Invalid synchronization parameters");
@@ -58,12 +63,27 @@ public:
     pointcloud_publisher_ = create_publisher<PointCloud>(
       synced_pointcloud_topic, sensor_qos);
     status_publisher_ = create_publisher<fusion_interfaces::msg::SyncStatus>(status_topic, 10);
+    monitor_ = std::make_unique<TimestampSyncMonitor>(
+      sync_tolerance_ms_, static_cast<std::size_t>(queue_size),
+      std::array<std::string, 3>{camera_frame_id_, camera_frame_id_, lidar_frame_id_});
 
     image_subscription_.subscribe(this, image_topic, sensor_qos.get_rmw_qos_profile());
     camera_info_subscription_.subscribe(
       this, camera_info_topic, sensor_qos.get_rmw_qos_profile());
     pointcloud_subscription_.subscribe(
       this, pointcloud_topic, sensor_qos.get_rmw_qos_profile());
+    image_subscription_.registerCallback(
+      [this](const Image::ConstSharedPtr & message) {
+        observeInput(SensorStream::Image, message->header);
+      });
+    camera_info_subscription_.registerCallback(
+      [this](const CameraInfo::ConstSharedPtr & message) {
+        observeInput(SensorStream::CameraInfo, message->header);
+      });
+    pointcloud_subscription_.registerCallback(
+      [this](const PointCloud::ConstSharedPtr & message) {
+        observeInput(SensorStream::PointCloud, message->header);
+      });
 
     synchronizer_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(
       SyncPolicy(queue_size), image_subscription_, camera_info_subscription_,
@@ -86,47 +106,66 @@ private:
            static_cast<std::int64_t>(stamp.nanosec);
   }
 
+  void observeInput(SensorStream stream, const std_msgs::msg::Header & header)
+  {
+    const auto fault = monitor_->observe(stream, stampNanoseconds(header.stamp), header.frame_id);
+    if (fault != SyncFault::None) {
+      publishStatus(header, fault);
+    }
+  }
+
+  void publishStatus(const std_msgs::msg::Header & header, SyncFault fault)
+  {
+    fusion_interfaces::msg::SyncStatus status;
+    status.header = header;
+    status.status = static_cast<std::uint8_t>(fault);
+    status.healthy = fault == SyncFault::None;
+    status.camera_lidar_offset_ms = static_cast<float>(monitor_->latestCameraLidarOffsetMs());
+    const auto & counters = monitor_->counters();
+    status.synchronized_pairs = counters.synchronized_pairs;
+    status.dropped_messages = counters.dropped_messages;
+    status.out_of_order_messages = counters.out_of_order_messages;
+    status.wrong_frame_messages = counters.wrong_frame_messages;
+    switch (fault) {
+      case SyncFault::None: status.message = "timestamps synchronized"; break;
+      case SyncFault::Delayed: status.message = "timestamp tolerance exceeded"; break;
+      case SyncFault::OutOfOrder: status.message = "out-of-order timestamp"; break;
+      case SyncFault::WrongFrame: status.message = "unexpected frame id"; break;
+    }
+    status_publisher_->publish(status);
+  }
+
   void synchronizedCallback(
     const Image::ConstSharedPtr & image,
     const CameraInfo::ConstSharedPtr & camera_info,
     const PointCloud::ConstSharedPtr & pointcloud)
   {
+    if (image->header.frame_id != camera_frame_id_ ||
+      camera_info->header.frame_id != camera_frame_id_ ||
+      pointcloud->header.frame_id != lidar_frame_id_)
+    {
+      publishStatus(image->header, SyncFault::WrongFrame);
+      return;
+    }
     const std::int64_t image_ns = stampNanoseconds(image->header.stamp);
     const std::int64_t camera_info_ns = stampNanoseconds(camera_info->header.stamp);
     const std::int64_t pointcloud_ns = stampNanoseconds(pointcloud->header.stamp);
-    const std::int64_t earliest = std::min({image_ns, camera_info_ns, pointcloud_ns});
-    const std::int64_t latest = std::max({image_ns, camera_info_ns, pointcloud_ns});
-    const double spread_ms = static_cast<double>(latest - earliest) / 1.0e6;
-    const double camera_lidar_offset_ms =
-      static_cast<double>(pointcloud_ns - image_ns) / 1.0e6;
-
-    fusion_interfaces::msg::SyncStatus status;
-    status.header = image->header;
-    status.camera_lidar_offset_ms = static_cast<float>(camera_lidar_offset_ms);
-    status.healthy = spread_ms <= sync_tolerance_ms_;
-
-    if (!status.healthy) {
-      ++dropped_messages_;
-      status.synchronized_pairs = synchronized_pairs_;
-      status.dropped_messages = dropped_messages_;
-      status_publisher_->publish(status);
-      RCLCPP_WARN(
-        get_logger(), "Rejected synchronized candidate with %.3f ms spread", spread_ms);
+    const auto fault = monitor_->observeMatch(image_ns, camera_info_ns, pointcloud_ns);
+    if (fault != SyncFault::None) {
+      publishStatus(image->header, fault);
       return;
     }
 
     image_publisher_->publish(*image);
     camera_info_publisher_->publish(*camera_info);
     pointcloud_publisher_->publish(*pointcloud);
-    ++synchronized_pairs_;
-    status.synchronized_pairs = synchronized_pairs_;
-    status.dropped_messages = dropped_messages_;
-    status_publisher_->publish(status);
+    publishStatus(image->header, SyncFault::None);
   }
 
   double sync_tolerance_ms_{50.0};
-  std::uint64_t synchronized_pairs_{0};
-  std::uint64_t dropped_messages_{0};
+  std::string camera_frame_id_;
+  std::string lidar_frame_id_;
+  std::unique_ptr<TimestampSyncMonitor> monitor_;
   message_filters::Subscriber<Image> image_subscription_;
   message_filters::Subscriber<CameraInfo> camera_info_subscription_;
   message_filters::Subscriber<PointCloud> pointcloud_subscription_;

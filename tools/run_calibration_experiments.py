@@ -22,6 +22,8 @@ def main():
         reference = yaml.safe_load(stream)
     with args.scenarios.open(encoding='utf-8') as stream:
         scenarios = (yaml.safe_load(stream) or {}).get('scenarios', [])
+    if not scenarios:
+        raise SystemExit('Scenario file contains no scenarios')
     args.output_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for scenario in scenarios:
@@ -38,6 +40,7 @@ def main():
             'scenario': name,
             'translation_drift_m': sum(value * value for value in translation) ** 0.5,
             'rotation_input_deg': sum(value * value for value in rotation) ** 0.5,
+            'expected_state': scenario.get('expected_state', 'unspecified'),
             'extrinsic_path': output,
         })
     report = args.output_dir / 'scenario_manifest.csv'
