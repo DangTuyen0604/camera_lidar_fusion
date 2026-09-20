@@ -11,7 +11,12 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
   <exec_depend>navigation_bridge</exec_depend>
+  <exec_depend>openamrobot_description</exec_depend>
+  <exec_depend>openamrobot_gazebo</exec_depend>
+  <exec_depend>warehouse_simulation</exec_depend>
+  <exec_depend>warehouse_mission_manager</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>

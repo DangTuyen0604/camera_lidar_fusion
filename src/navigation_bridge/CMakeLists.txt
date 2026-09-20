@@ -3,8 +3,13 @@ project(navigation_bridge)
 
 find_package(ament_cmake REQUIRED)
 find_package(fusion_interfaces REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 add_library(${PROJECT_NAME} src/detection_obstacle_bridge.cpp)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
@@ -20,7 +25,8 @@ add_executable(detection_obstacle_bridge_node
 target_compile_features(detection_obstacle_bridge_node PUBLIC cxx_std_17)
 target_link_libraries(detection_obstacle_bridge_node ${PROJECT_NAME})
 ament_target_dependencies(
-  detection_obstacle_bridge_node fusion_interfaces rclcpp sensor_msgs)
+  detection_obstacle_bridge_node diagnostic_msgs fusion_interfaces geometry_msgs
+  rclcpp sensor_msgs tf2 tf2_geometry_msgs tf2_ros)
 
 install(
   TARGETS ${PROJECT_NAME} detection_obstacle_bridge_node
@@ -37,12 +43,14 @@ ament_export_dependencies(fusion_interfaces)
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
+  find_package(launch_testing_ament_cmake REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 
   ament_add_gtest(test_obstacle_transform test/test_obstacle_transform.cpp)
   target_link_libraries(test_obstacle_transform ${PROJECT_NAME})
+  add_launch_test(test/test_bridge_node.py TIMEOUT 30)
 endif()
 
 ament_package()

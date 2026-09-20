@@ -1,0 +1,10 @@
+stations:
+  HOME: {x: 0.0, y: -4.0, yaw: 1.57, region: [-1.0, 1.0, -5.0, -3.0]}
+  S1_STORAGE: {x: -6.0, y: 3.5, yaw: 0.0, region: [-7.0, -5.0, 2.5, 4.5]}
+  S2_ASSEMBLY: {x: -2.0, y: 3.5, yaw: 0.0, region: [-3.0, -1.0, 2.5, 4.5]}
+  S3_INSPECTION: {x: 2.0, y: 3.5, yaw: 3.14, region: [1.0, 3.0, 2.5, 4.5]}
+  S4_PACKAGING: {x: 6.0, y: 3.5, yaw: 3.14, region: [5.0, 7.0, 2.5, 4.5]}
+regions:
+  aisle_a: [-7.0, -3.0, -2.5, 2.5]
+  crossing: [-1.0, 1.0, -2.5, 2.5]
+  assembly_exit: [-1.0, 1.0, 2.0, 4.5]

@@ -2,12 +2,12 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
-from launch.conditions import IfCondition, UnlessCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, SetEnvironmentVariable
+from launch.conditions import IfCondition
+from launch.substitutions import Command, EnvironmentVariable, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from ros_gz_sim.actions import GzServer
 
 
 def generate_launch_description():
@@ -23,7 +23,7 @@ def generate_launch_description():
     spawn_z = LaunchConfiguration('spawn_z')
     spawn_yaw = LaunchConfiguration('spawn_yaw')
 
-    xacro_file = os.path.join(description_dir, 'urdf', 'robo_urdf.urdf.xacro')
+    xacro_file = os.path.join(description_dir, 'urdf', 'mobile_robot.urdf.xacro')
     robot_desc = ParameterValue(Command(['xacro ', xacro_file]), value_type=str)
 
     resource_paths = [
@@ -33,7 +33,8 @@ def generate_launch_description():
 
     gz_resource_path = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH',
-        value=':'.join(resource_paths),
+        value=[EnvironmentVariable('GZ_SIM_RESOURCE_PATH', default_value=''),
+               ':', ':'.join(resource_paths)],
     )
 
     start_robot_state_publisher_cmd = Node(
@@ -57,29 +58,12 @@ def generate_launch_description():
         output='screen'
     )
 
-    gz_sim_gui = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('ros_gz_sim'),
-                'launch',
-                'gz_sim.launch.py',
-            )
-        ),
-        launch_arguments={'gz_args': ['-r -v 2 ', world]}.items(),
-        condition=IfCondition(gui),
-    )
-
-    gz_sim_headless = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('ros_gz_sim'),
-                'launch',
-                'gz_sim.launch.py',
-            )
-        ),
-        launch_arguments={'gz_args': ['-r -s -v 2 ', world]}.items(),
-        condition=UnlessCondition(gui),
-    )
+    # GzServer embeds Gazebo and exposes the ROS spawn/delete/set-pose
+    # services used by the deterministic scenario runner.
+    gz_server = GzServer(world_sdf_file=world, verbosity_level=2)
+    gz_gui = ExecuteProcess(
+        cmd=['gz', 'sim', '-g', '-v', '2'],
+        condition=IfCondition(gui), output='screen')
 
     spawn_entity = Node(
         package='ros_gz_sim',
@@ -117,8 +101,8 @@ def generate_launch_description():
         DeclareLaunchArgument('spawn_z', default_value='0.20'),
         DeclareLaunchArgument('spawn_yaw', default_value='0.0'),
         gz_resource_path,
-        gz_sim_gui,
-        gz_sim_headless,
+        gz_server,
+        gz_gui,
         bridge,
         spawn_entity,
         start_robot_state_publisher_cmd,

@@ -629,7 +629,7 @@ Stephen Brawner (brawner@gmail.com)
     name="lidar_joint"
     type="fixed">
     <origin
-      xyz="0.35135 -0.0010251 0.1683"
+      xyz="0.0 0.0 0.30"
       rpy="0 0 0" />
     <parent
       link="base_link" />

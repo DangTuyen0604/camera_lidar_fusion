@@ -14,10 +14,11 @@ def generate_launch_description():
     share = Path(get_package_share_directory('navigation_bringup'))
     use_sim_time = LaunchConfiguration('use_sim_time')
     map_file = LaunchConfiguration('map')
+    description_share = Path(get_package_share_directory('openamrobot_description'))
     robot_description = Command([
         FindExecutable(name='xacro'),
         ' ',
-        str(share / 'urdf' / 'mobile_robot.urdf.xacro'),
+        str(description_share / 'urdf' / 'mobile_robot.urdf.xacro'),
     ])
 
     localization = IncludeLaunchDescription(
@@ -39,7 +40,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument(
-            'map', default_value=str(share / 'maps' / 'demo_map.yaml')
+            'map', default_value=str(share / 'maps' / 'warehouse_map.yaml')
         ),
         Node(
             package='robot_state_publisher',
@@ -57,6 +58,8 @@ def generate_launch_description():
             parameters=[{
                 'minimum_confidence': 0.35,
                 'maximum_range': 50.0,
+                'target_frame': 'base_link',
+                'obstacle_timeout': 0.75,
             }],
         ),
         localization,

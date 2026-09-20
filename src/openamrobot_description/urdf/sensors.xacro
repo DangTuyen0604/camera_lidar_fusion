@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- Sensor frames are defined once in robo_urdf.urdf.xacro. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="openamrobot_sensor_contract" params="">
+    <!-- lidar_link, camera_link and camera_optical_frame -->
+  </xacro:macro>
+</robot>

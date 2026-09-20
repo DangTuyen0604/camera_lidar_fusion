@@ -19,6 +19,7 @@ if(BUILD_TESTING)
     test_navigation_pipeline
     test/test_navigation_pipeline.py
   )
+  ament_add_pytest_test(test_warehouse_day5 test/test_warehouse_day5.py)
   add_launch_test(test/test_perception_pipeline.py TIMEOUT 90)
 endif()
 

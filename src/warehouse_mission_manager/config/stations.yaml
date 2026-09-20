@@ -1,0 +1,6 @@
+stations:
+  HOME: {x: 0.0, y: -4.0, yaw: 1.57}
+  S1_STORAGE: {x: -6.0, y: 3.5, yaw: 0.0}
+  S2_ASSEMBLY: {x: -2.0, y: 3.5, yaw: 0.0}
+  S3_INSPECTION: {x: 2.0, y: 3.5, yaw: 3.14}
+  S4_PACKAGING: {x: 6.0, y: 3.5, yaw: 3.14}

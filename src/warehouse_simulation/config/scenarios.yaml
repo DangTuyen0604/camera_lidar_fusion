@@ -1,0 +1,15 @@
+scenarios:
+  warehouse_demo:
+    - {action: wait_for_robot_region, region: aisle_a}
+    - {action: spawn, name: blocking_pallet, model: pallet, pose: [-4.0, 0.0, 0.10, 0.0]}
+    - {action: wait_for_robot_region, region: crossing}
+    - {action: spawn, name: crossing_worker, model: worker, pose: [0.0, -2.0, 0.0, 0.0]}
+    - {action: follow_path, name: crossing_worker, speed: 0.6, path: [[0.0, -2.0], [0.0, 2.0]]}
+    - {action: wait_for_robot_region, region: assembly_exit}
+    - {action: spawn, name: fallen_box, model: cargo_box, pose: [1.5, 2.0, 0.25, 0.2]}
+    - {action: wait_for_mission_state, state: WAIT_FOR_LOADING}
+    - {action: spawn, name: mission_cargo, model: cargo_box, pose: [0.0, 0.0, 0.25, 0.0]}
+    - {action: attach_cargo, name: mission_cargo}
+    - {action: wait_for_mission_state, state: DOCKED}
+    - {action: detach_cargo, name: mission_cargo}
+    - {action: delete, name: mission_cargo}

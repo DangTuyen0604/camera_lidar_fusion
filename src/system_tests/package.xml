@@ -15,6 +15,9 @@
   <test_depend>launch_testing_ros</test_depend>
   <test_depend>perception_core</test_depend>
   <test_depend>navigation_bringup</test_depend>
+  <test_depend>openamrobot_description</test_depend>
+  <test_depend>warehouse_mission_manager</test_depend>
+  <test_depend>warehouse_simulation</test_depend>
   <test_depend>python3-yaml</test_depend>
   <test_depend>rclpy</test_depend>
   <test_depend>sensor_msgs</test_depend>

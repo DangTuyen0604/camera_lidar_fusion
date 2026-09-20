@@ -1,0 +1,5 @@
+missions:
+  - {id: M01, pickup: S1_STORAGE, destination: S2_ASSEMBLY}
+  - {id: M02, pickup: S2_ASSEMBLY, destination: S3_INSPECTION}
+  - {id: M03, pickup: S3_INSPECTION, destination: S4_PACKAGING}
+  - {id: M04, pickup: S4_PACKAGING, destination: S1_STORAGE}

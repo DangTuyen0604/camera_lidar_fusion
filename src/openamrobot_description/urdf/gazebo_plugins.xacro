@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<!-- Stable plugin split; the canonical implementation remains compatible with
+     the upstream model through gazebo_control.xacro. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find openamrobot_description)/urdf/gazebo_control.xacro"/>
+</robot>

@@ -24,4 +24,23 @@ def generate_launch_description():
                 {'use_sim_time': use_sim_time},
             ],
         ),
+        Node(
+            package='nav2_map_server', executable='map_saver_server',
+            name='map_saver', output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'save_map_timeout': 5.0,
+                'free_thresh_default': 0.25,
+                'occupied_thresh_default': 0.65,
+            }],
+        ),
+        Node(
+            package='nav2_lifecycle_manager', executable='lifecycle_manager',
+            name='lifecycle_manager_map_saver', output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'autostart': True,
+                'node_names': ['map_saver'],
+            }],
+        ),
     ])
