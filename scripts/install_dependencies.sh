@@ -22,6 +22,7 @@ sudo apt-get install -y \
   python3-rosdep \
   python3-venv \
   python3-yaml \
+  shellcheck \
   ros-jazzy-ament-lint-auto \
   ros-jazzy-ament-lint-common \
   ros-jazzy-ament-cmake-gtest \

@@ -1,20 +1,2 @@
-services:
-  fusion:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    image: camera-lidar-fusion:jazzy
-    network_mode: host
-    environment:
-      ROS_DOMAIN_ID: "42"
-      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
-    volumes:
-      - ../data:/workspace/data:ro
-      - ../models:/workspace/models:ro
-      - ../bags:/workspace/bags
-    command:
-      - ros2
-      - launch
-      - fusion_bringup
-      - perception_demo.launch.py
-      - use_rviz:=false
+include:
+  - compose.yaml

@@ -22,9 +22,11 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     gui = LaunchConfiguration('gui')
     map_file = LaunchConfiguration('map')
+    mission_autostart = LaunchConfiguration('mission_autostart')
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('gui', default_value='false'),
+        DeclareLaunchArgument('mission_autostart', default_value='true'),
         DeclareLaunchArgument(
             'map', default_value=str(nav_share / 'maps' / 'warehouse_map.yaml')),
         include('warehouse_simulation', 'warehouse.launch.py', {
@@ -41,6 +43,7 @@ def generate_launch_description():
                 'use_sim_time': use_sim_time}),
         ]),
         TimerAction(period=8.0, actions=[
-            include('warehouse_mission_manager', 'mission_demo.launch.py'),
+            include('warehouse_mission_manager', 'mission_demo.launch.py', {
+                'autostart': mission_autostart}),
         ]),
     ])

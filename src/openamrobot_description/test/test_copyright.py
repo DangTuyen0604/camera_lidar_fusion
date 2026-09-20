@@ -12,14 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ament_copyright.main import main
-import pytest
+from pathlib import Path
+import xml.etree.ElementTree as ET
 
 
-# Remove the `skip` decorator once the source file(s) have a copyright header
-@pytest.mark.skip(reason='No copyright header has been placed in the generated source file.')
-@pytest.mark.copyright
-@pytest.mark.linter
-def test_copyright():
-    rc = main(argv=['.', 'test'])
-    assert rc == 0, 'Found errors'
+def test_license_is_declared_and_shipped():
+    package_root = Path(__file__).resolve().parents[1]
+    assert ET.parse(package_root / 'package.xml').findtext('license') == 'Apache-2.0'
+    assert (package_root / 'LICENSE').is_file()

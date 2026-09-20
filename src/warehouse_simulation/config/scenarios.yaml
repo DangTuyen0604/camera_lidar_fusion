@@ -1,3 +1,5 @@
+seed: 42
+action_timeout_sec: 10.0
 scenarios:
   warehouse_demo:
     - {action: wait_for_robot_region, region: aisle_a}
@@ -13,3 +15,6 @@ scenarios:
     - {action: wait_for_mission_state, state: DOCKED}
     - {action: detach_cargo, name: mission_cargo}
     - {action: delete, name: mission_cargo}
+    - {action: delete, name: blocking_pallet}
+    - {action: delete, name: crossing_worker}
+    - {action: delete, name: fallen_box}

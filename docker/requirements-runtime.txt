@@ -1,0 +1,7 @@
+numpy>=1.26,<2
+onnxruntime>=1.20,<2
+onnx>=1.16,<1.20
+opencv-python-headless>=4.10,<5
+PyYAML>=6.0,<7
+matplotlib>=3.8,<4
+pandas>=2.2,<4

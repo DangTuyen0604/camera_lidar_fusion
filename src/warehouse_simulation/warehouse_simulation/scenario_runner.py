@@ -2,6 +2,7 @@
 
 import math
 from pathlib import Path
+import time
 
 from ament_index_python.packages import get_package_share_directory
 from fusion_interfaces.msg import FusedDetection, FusedDetectionArray
@@ -9,7 +10,7 @@ from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
 from simulation_interfaces.srv import DeleteEntity, SetEntityState, SpawnEntity
-from std_msgs.msg import String
+from std_msgs.msg import String, UInt64
 import yaml
 
 
@@ -24,7 +25,10 @@ class ScenarioRunner(Node):
         stations_file = Path(self.declare_parameter(
             'stations_file', str(share / 'config' / 'stations.yaml')).value)
         scenario_name = self.declare_parameter('scenario', 'warehouse_demo').value
-        self.actions = yaml.safe_load(scenario_file.read_text())['scenarios'][scenario_name]
+        scenario_document = yaml.safe_load(scenario_file.read_text())
+        self.actions = scenario_document['scenarios'][scenario_name]
+        self.scenario_seed = int(scenario_document['seed'])
+        self.action_timeout_sec = float(scenario_document['action_timeout_sec'])
         self.regions = yaml.safe_load(stations_file.read_text()).get('regions', {})
         self.models_dir = share / 'models'
         self.index = 0
@@ -38,11 +42,18 @@ class ScenarioRunner(Node):
         self.paths = {}
         self.motion_futures = {}
         self.entities = {}
+        self.collision_count = 0
+        self.in_collision = False
         self.spawn_client = self.create_client(SpawnEntity, '/gzserver/spawn_entity')
         self.pose_client = self.create_client(SetEntityState, '/gzserver/set_entity_state')
         self.delete_client = self.create_client(DeleteEntity, '/gzserver/delete_entity')
         self.detection_publisher = self.create_publisher(
             FusedDetectionArray, '/fusion/detections_3d', 10)
+        self.truth_publisher = self.create_publisher(
+            FusedDetectionArray, '/benchmark/ground_truth/detections_3d', 10)
+        self.event_publisher = self.create_publisher(String, '/benchmark/events', 10)
+        self.collision_publisher = self.create_publisher(
+            UInt64, '/benchmark/collision_count', 10)
         self.create_subscription(Odometry, '/odom', self._odom, 10)
         self.create_subscription(String, '/mission/state', self._state, 10)
         self.create_timer(0.10, self._tick)
@@ -73,7 +84,7 @@ class ScenarioRunner(Node):
             return None
         future = client.call_async(request)
         if advance:
-            self.pending = (future, description)
+            self.pending = (future, description, time.monotonic())
         return future
 
     def _move(self, name, pose, advance=True):
@@ -93,7 +104,8 @@ class ScenarioRunner(Node):
         return True
 
     def _publish_detections(self):
-        """Publish deterministic simulator truth through the real fusion contract.
+        """
+        Publish deterministic simulator truth through the real fusion contract.
 
         This keeps the navigation/costmap integration deterministic while the
         Gazebo camera and lidar continue to publish their physical sensor data.
@@ -116,6 +128,10 @@ class ScenarioRunner(Node):
             detection.valid = True
             message.detections.append(detection)
         self.detection_publisher.publish(message)
+        self.truth_publisher.publish(message)
+        collision = UInt64()
+        collision.data = self.collision_count
+        self.collision_publisher.publish(collision)
 
     def _tick_paths_and_cargo(self):
         for name, path in list(self.paths.items()):
@@ -142,17 +158,33 @@ class ScenarioRunner(Node):
                 self._move(
                     name, [self.robot_xy[0] - 0.25, self.robot_xy[1], 0.48, 0.0],
                     advance=False)
+            colliding = any(
+                math.hypot(self.robot_xy[0] - entity['pose'][0],
+                           self.robot_xy[1] - entity['pose'][1]) < 0.42
+                for name, entity in self.entities.items() if name not in self.attached)
+            if colliding and not self.in_collision:
+                self.collision_count += 1
+            self.in_collision = colliding
 
     def _tick(self):
         self._tick_paths_and_cargo()
         if self.pending is not None:
-            future, description = self.pending
+            future, description, started = self.pending
             if not future.done():
+                if time.monotonic() - started > self.action_timeout_sec:
+                    future.cancel()
+                    self.pending = None
+                    self.get_logger().error(
+                        f'Gazebo command timed out after {self.action_timeout_sec}s: '
+                        f'{description}; scenario paused (seed={self.scenario_seed})')
                 return
             self.pending = None
             response = future.result()
             if response is not None and response.result.result == response.result.RESULT_OK:
                 self.get_logger().info(description)
+                event = String()
+                event.data = description.replace(' ', ':', 1)
+                self.event_publisher.publish(event)
                 self.index += 1
             else:
                 self.get_logger().error(f'Gazebo command failed: {description}')

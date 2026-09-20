@@ -11,6 +11,7 @@ from rclpy.action import ActionClient
 from rclpy.duration import Duration
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 import yaml
 
 from .cargo_manager import CargoManager
@@ -29,6 +30,7 @@ class MissionManager(Node):
         self.stations = yaml.safe_load(stations_file.read_text())['stations']
         self.missions = yaml.safe_load(missions_file.read_text())['missions']
         self.state = MissionState.IDLE
+        self.started = bool(self.declare_parameter('autostart', True).value)
         self.mission_index = 0
         self.odom = None
         self.collision = False
@@ -41,6 +43,7 @@ class MissionManager(Node):
         self.create_subscription(Odometry, '/odom', self._odom, 10)
         self.create_subscription(
             CollisionMonitorState, '/collision_monitor_state', self._collision, 10)
+        self.create_service(Trigger, '/mission/start', self._start_mission)
         self.timer = self.create_timer(0.20, self._tick)
         self._publish_state()
 
@@ -53,6 +56,17 @@ class MissionManager(Node):
 
     def _collision(self, msg):
         self.collision = msg.action_type == CollisionMonitorState.STOP
+
+    def _start_mission(self, request, response):
+        del request
+        if self.state != MissionState.IDLE or self.started:
+            response.success = False
+            response.message = 'mission already started'
+            return response
+        self.started = True
+        response.success = True
+        response.message = 'M01-M04 mission sequence accepted'
+        return response
 
     def _transition(self, state):
         self.state = state
@@ -116,6 +130,8 @@ class MissionManager(Node):
 
     def _tick(self):
         self._publish_state()
+        if not self.started:
+            return
         if self.state == MissionState.IDLE:
             self._transition(MissionState.ACCEPTED)
         elif self.state == MissionState.ACCEPTED:

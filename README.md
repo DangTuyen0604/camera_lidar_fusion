@@ -1,5 +1,8 @@
 # Camera–LiDAR Fusion với KITTI và ROS 2
 
+[![Build and test](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/build-and-test.yml)
+[![Lint](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml/badge.svg)](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml)
+
 Demo phát ảnh màu, `CameraInfo` và point cloud Velodyne từ KITTI, đồng bộ
 timestamp, đọc calibration, chiếu LiDAR lên ảnh, hiển thị bằng RViz và ghi
 rosbag.
@@ -23,12 +26,41 @@ workspace này.
 - `navigation_bringup` và `navigation_bridge`: tài nguyên Nav2 và điểm mở rộng
   để chuyển fused detection thành vật cản.
 - `system_tests`: khung integration test cấp hệ thống.
+- `warehouse_simulation` và `warehouse_mission_manager`: warehouse động,
+  docking, cargo và chuỗi nhiệm vụ M01–M04.
+- `benchmarks`: runner 16 cấu hình, collector metric ROS thật và biểu đồ Gate 6.2.
+- `docker`: hai profile `runtime-cpu` và `training`, cùng năm service runtime.
+
+Tài liệu chi tiết nằm trong `docs/`, gồm architecture, installation, dataset,
+projection, synchronization, fusion, calibration, navigation, warehouse,
+mission, dynamic obstacle, person safety, docking, benchmark, testing, Docker
+và limitations.
 
 ## Cài đặt
 
 ```bash
 cd camera_lidar_fusion
 ./scripts/install_dependencies.sh
+```
+
+## Quick start từ fresh clone
+
+```bash
+git clone https://github.com/DangTuyen0604/camera_lidar_fusion.git
+cd camera_lidar_fusion
+./scripts/install_dependencies.sh
+./scripts/build_workspace.sh
+./tools/download_kitti.sh
+./scripts/run_projection_demo.sh
+./scripts/run_perception_demo.sh
+./scripts/run_warehouse_demo.sh gui:=false
+```
+
+Audit, test và benchmark đầy đủ:
+
+```bash
+./scripts/run_audit.sh --full
+./scripts/run_benchmarks.sh
 ```
 
 Nếu ROS 2 Jazzy đã được cài, có thể chỉ cài dependency từ package:

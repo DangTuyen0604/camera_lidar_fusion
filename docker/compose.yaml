@@ -1,0 +1,58 @@
+x-runtime: &runtime
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+    target: runtime-cpu
+  image: camera-lidar-fusion:runtime-cpu
+  network_mode: host
+  ipc: host
+  environment:
+    ROS_DOMAIN_ID: "42"
+    ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+    RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+  volumes:
+    - ../data:/workspace/data:ro
+    - ../models:/workspace/models:ro
+    - ../bags:/workspace/bags:ro
+    - ../benchmark_results:/workspace/benchmark_results
+  profiles: [runtime-cpu]
+  init: true
+  stop_grace_period: 15s
+
+services:
+  simulation:
+    <<: *runtime
+    command: [ros2, launch, warehouse_simulation, warehouse.launch.py, gui:=false, use_scenario:=true]
+
+  perception:
+    <<: *runtime
+    command: [ros2, launch, fusion_bringup, perception_demo.launch.py, use_rviz:=false, model_path:=/workspace/models/yolov8n-opencv.onnx]
+
+  navigation:
+    <<: *runtime
+    command: [ros2, launch, navigation_bringup, full_system.launch.py, use_sim_time:=true]
+
+  mission_manager:
+    <<: *runtime
+    command: [ros2, launch, warehouse_mission_manager, mission_demo.launch.py]
+
+  benchmark:
+    <<: *runtime
+    command: [python3, benchmarks/run_benchmark.py, --output-dir, /workspace/benchmark_results]
+
+  training:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: training
+    image: camera-lidar-fusion:training
+    profiles: [training]
+    working_dir: /workspace
+    volumes:
+      - ../data:/workspace/data
+      - ../models:/workspace/models
+      - ../training:/workspace/training
+      - ../runs:/workspace/runs
+    command: [bash]
+    stdin_open: true
+    tty: true

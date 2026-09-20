@@ -7,6 +7,7 @@
   <exec_depend>ament_index_python</exec_depend><exec_depend>geometry_msgs</exec_depend>
   <exec_depend>fusion_interfaces</exec_depend>
   <exec_depend>nav_msgs</exec_depend><exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
   <exec_depend>ros_gz_interfaces</exec_depend><exec_depend>openamrobot_gazebo</exec_depend>
   <exec_depend>simulation_interfaces</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>

@@ -18,3 +18,9 @@ bags/*/
 training/datasets/*
 !training/datasets/README.md
 runs/
+benchmark_results/*.csv
+benchmark_results/*.png
+benchmarks/results/
+*.mp4
+*.mkv
+*.avi

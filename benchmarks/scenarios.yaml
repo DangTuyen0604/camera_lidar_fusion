@@ -1,0 +1,21 @@
+launch_command: [ros2, launch, system_tests, day6_benchmark.launch.py]
+seed: 42
+startup_timeout_sec: 45
+run_timeout_sec: 150
+scenarios:
+  baseline: {runs: 5, parameters: {}}
+  timestamp_delay_25ms: {runs: 5, parameters: {timestamp_delay_ms: 25}}
+  timestamp_delay_50ms: {runs: 5, parameters: {timestamp_delay_ms: 50}}
+  timestamp_delay_100ms: {runs: 5, parameters: {timestamp_delay_ms: 100}}
+  extrinsic_translation_drift: {runs: 5, parameters: {translation_drift_m: 0.05}}
+  extrinsic_rotation_drift: {runs: 5, parameters: {rotation_drift_deg: 3.0}}
+  point_cloud_noise_low: {runs: 5, parameters: {point_cloud_noise_stddev: 0.01}}
+  point_cloud_noise_high: {runs: 5, parameters: {point_cloud_noise_stddev: 0.10}}
+  cloud_density_75%: {runs: 5, parameters: {cloud_density: 0.75}}
+  cloud_density_50%: {runs: 5, parameters: {cloud_density: 0.50}}
+  cloud_density_25%: {runs: 5, parameters: {cloud_density: 0.25}}
+  yolo_confidence_low: {runs: 5, parameters: {yolo_confidence: 0.20}}
+  yolo_confidence_high: {runs: 5, parameters: {yolo_confidence: 0.70}}
+  fusion_timeout: {runs: 5, parameters: {fusion_timeout_ms: 75}}
+  slow_camera: {runs: 5, parameters: {camera_rate_hz: 5}}
+  slow_lidar: {runs: 5, parameters: {lidar_rate_hz: 5}}
