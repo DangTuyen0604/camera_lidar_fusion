@@ -29,6 +29,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(test_dynamic_replanning test/test_dynamic_replanning.py)
   ament_add_pytest_test(test_person_stop_resume test/test_person_stop_resume.py)
+  ament_add_pytest_test(
+    test_stage3_safety_config
+    test/test_stage3_safety_config.py
+  )
   ament_add_pytest_test(test_box_avoidance test/test_box_avoidance.py)
   ament_add_pytest_test(test_docking_pipeline test/test_docking_pipeline.py)
   ament_add_pytest_test(test_multi_station_mission test/test_multi_station_mission.py)
