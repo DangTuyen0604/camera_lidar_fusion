@@ -629,7 +629,7 @@ Stephen Brawner (brawner@gmail.com)
     name="lidar_joint"
     type="fixed">
     <origin
-      xyz="0.0 0.0 0.30"
+      xyz="0.35135 -0.0010251 0.1683"
       rpy="0 0 0" />
     <parent
       link="base_link" />
@@ -675,6 +675,22 @@ Stephen Brawner (brawner@gmail.com)
     <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
     <parent link="camera_link"/>
     <child link="camera_optical_frame"/>
+  </joint>
+
+  <!-- IMU frame kept separate from base_link so recorded data and hardware
+       deployments can preserve the physical sensor frame contract. -->
+  <link name="imu_link">
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0"
+               iyy="0.000001" iyz="0" izz="0.000001"/>
+    </inertial>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <origin xyz="0 0 0.12" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="imu_link"/>
   </joint>
 
   <xacro:include filename="gazebo_control.xacro" />

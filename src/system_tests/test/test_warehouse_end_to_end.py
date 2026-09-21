@@ -16,6 +16,7 @@ from nav_msgs.msg import Path as NavPath
 import pytest
 import rclpy
 from rclpy.action import ActionClient
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import String, UInt64
 from std_srvs.srv import Trigger
@@ -53,13 +54,18 @@ class TestWarehouseEndToEnd(unittest.TestCase):
         for message, topic, target in (
                 (NavPath, '/plan', self.paths),
                 (FusedDetectionArray, '/fusion/detections_3d', self.fused),
-                (PointCloud2, '/navigation/detection_obstacles', self.obstacles),
                 (String, '/mission/state', self.states),
                 (String, '/mission/cargo', self.cargo),
                 (String, '/benchmark/events', self.events),
                 (Twist, '/cmd_vel', self.velocities),
                 (UInt64, '/benchmark/collision_count', self.collisions)):
             self.node.create_subscription(message, topic, target.append, 20)
+        self.node.create_subscription(
+            PointCloud2,
+            '/navigation/detection_obstacles',
+            self.obstacles.append,
+            qos_profile_sensor_data,
+        )
         self.start_client = self.node.create_client(Trigger, '/mission/start')
         self.navigation = ActionClient(self.node, NavigateToPose, 'navigate_to_pose')
 

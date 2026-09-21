@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
+set +u
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
@@ -7,6 +8,7 @@ export ROS_LOG_DIR="${ROS_LOG_DIR:-/tmp/camera_lidar_fusion_audit_logs}"
 mkdir -p "$ROS_LOG_DIR"
 . /opt/ros/jazzy/setup.bash
 [[ ! -f install/setup.bash ]] || . install/setup.bash
+set -u
 
 python3 tools/audit_repository.py
 python3 tools/audit_ros_contracts.py

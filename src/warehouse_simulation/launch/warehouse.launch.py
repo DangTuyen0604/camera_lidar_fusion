@@ -14,10 +14,12 @@ def generate_launch_description():
     share = Path(get_package_share_directory('warehouse_simulation'))
     gazebo = Path(get_package_share_directory('openamrobot_gazebo'))
     gui = LaunchConfiguration('gui')
+    use_sim_time = LaunchConfiguration('use_sim_time')
     use_scenario = LaunchConfiguration('use_scenario')
     from launch.conditions import IfCondition
     return LaunchDescription([
         DeclareLaunchArgument('gui', default_value='false'),
+        DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('use_scenario', default_value='true'),
         SetEnvironmentVariable(
             'GZ_SIM_RESOURCE_PATH',
@@ -26,9 +28,13 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(str(gazebo / 'launch' / 'gz_simulator.launch.py')),
             launch_arguments={
                 'world': str(share / 'worlds' / 'warehouse.sdf'),
-                'gui': gui, 'spawn_x': '0.0', 'spawn_y': '-4.0', 'spawn_yaw': '0.0',
+                'gui': gui,
+                'use_sim_time': use_sim_time,
+                'spawn_x': '0.0',
+                'spawn_y': '-4.0',
+                'spawn_yaw': '0.0',
             }.items()),
         Node(package='warehouse_simulation', executable='scenario_runner',
              condition=IfCondition(use_scenario), output='screen',
-             parameters=[{'use_sim_time': True}]),
+             parameters=[{'use_sim_time': use_sim_time}]),
     ])

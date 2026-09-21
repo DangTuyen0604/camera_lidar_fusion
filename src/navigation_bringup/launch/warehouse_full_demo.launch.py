@@ -30,7 +30,18 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'map', default_value=str(nav_share / 'maps' / 'warehouse_map.yaml')),
         include('warehouse_simulation', 'warehouse.launch.py', {
-            'gui': gui, 'use_scenario': 'true'}),
+            'gui': gui,
+            'use_sim_time': use_sim_time,
+            'use_scenario': 'true',
+        }),
+        # Match the OpenAMRobot reference stack: remove returns from the rear
+        # chassis before presenting the live LiDAR scan to RViz.
+        Node(package='laser_filters', executable='scan_to_scan_filter_chain',
+             name='scan_body_filter', output='screen',
+             parameters=[str(nav_share / 'config' / 'scan_body_filter.yaml'),
+                         {'use_sim_time': use_sim_time}],
+             remappings=[('scan', '/scan'),
+                         ('scan_filtered', '/scan_filtered')]),
         Node(package='navigation_bridge', executable='detection_obstacle_bridge_node',
              output='screen', parameters=[{
                  'use_sim_time': use_sim_time, 'target_frame': 'base_link',
@@ -44,6 +55,8 @@ def generate_launch_description():
         ]),
         TimerAction(period=8.0, actions=[
             include('warehouse_mission_manager', 'mission_demo.launch.py', {
-                'autostart': mission_autostart}),
+                'autostart': mission_autostart,
+                'use_sim_time': use_sim_time,
+            }),
         ]),
     ])

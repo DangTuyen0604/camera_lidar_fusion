@@ -161,6 +161,16 @@
     </sensor>
   </gazebo>
 
+  <!-- ── Link-level: imu_link ────────────────────────────────────── -->
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <topic>/imu</topic>
+      <update_rate>100</update_rate>
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+    </sensor>
+  </gazebo>
+
   <!-- ── Link-level: lidar_link — sensor ONLY here ─────────────────── -->
   <gazebo reference="lidar_link">
     <material>Gazebo/Black</material>

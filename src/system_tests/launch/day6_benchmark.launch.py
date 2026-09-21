@@ -17,11 +17,14 @@ def include(package, launch_file, arguments):
 
 
 def generate_launch_description():
+    mission_autostart = LaunchConfiguration('mission_autostart')
     return LaunchDescription([
         DeclareLaunchArgument('gui', default_value='false'),
         DeclareLaunchArgument('use_rviz', default_value='false'),
+        DeclareLaunchArgument('mission_autostart', default_value='false'),
         include('navigation_bringup', 'warehouse_full_demo.launch.py', {
-            'gui': LaunchConfiguration('gui'), 'mission_autostart': 'true'}),
+            'gui': LaunchConfiguration('gui'),
+            'mission_autostart': mission_autostart}),
         include('fusion_bringup', 'perception_demo.launch.py', {
             'use_rviz': LaunchConfiguration('use_rviz'), 'loop': 'true'}),
     ])

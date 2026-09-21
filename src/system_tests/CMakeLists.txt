@@ -36,7 +36,12 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_rosbag_replay test/test_rosbag_replay.py)
   ament_add_pytest_test(test_clean_shutdown test/test_clean_shutdown.py)
   ament_add_pytest_test(test_fault_injection test/test_fault_injection.py)
+  ament_add_pytest_test(
+    test_license_provenance
+    test/test_license_provenance.py
+  )
   add_launch_test(test/test_perception_pipeline.py TIMEOUT 90)
+  add_launch_test(test/test_warehouse_smoke.py TIMEOUT 180)
   add_launch_test(test/test_warehouse_end_to_end.py TIMEOUT 600)
 endif()
 

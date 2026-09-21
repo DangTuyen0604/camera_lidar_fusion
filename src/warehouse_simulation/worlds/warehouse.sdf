@@ -5,8 +5,59 @@
   <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
   <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
   <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"><render_engine>ogre2</render_engine></plugin>
+  <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
   <light type="directional" name="sun"><pose>0 0 10 0 0 0</pose><diffuse>0.9 0.9 0.9 1</diffuse><direction>-0.3 0.2 -1</direction></light>
-  <model name="floor"><static>true</static><link name="link"><collision name="c"><geometry><box><size>18 14 0.1</size></box></geometry></collision><visual name="v"><geometry><box><size>18 14 0.1</size></box></geometry><material><diffuse>0.55 0.55 0.55 1</diffuse></material></visual></link></model>
+  <!-- The visible slab matches the 18 x 14 m navigation map.  The plane is an
+       infinite safety collision so a localization failure cannot make the
+       robot fall forever after crossing the edge of the slab. -->
+  <model name="ground_plane">
+    <static>true</static>
+    <pose>0 0 0.05 0 0 0</pose>
+    <link name="link">
+      <collision name="collision">
+        <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+      </collision>
+    </link>
+  </model>
+  <model name="floor">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <geometry><box><size>18 14 0.1</size></box></geometry>
+        <material>
+          <ambient>0.55 0.55 0.55 1</ambient>
+          <diffuse>0.55 0.55 0.55 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+
+  <!-- Physical perimeter corresponding to the occupied border in
+       warehouse_map.pgm (origin -9,-7, resolution 0.2 m). -->
+  <model name="wall_west">
+    <static>true</static><pose>-8.8 0 0.8 0 0 0</pose><link name="link">
+      <collision name="collision"><geometry><box><size>0.4 14 1.6</size></box></geometry></collision>
+      <visual name="visual"><geometry><box><size>0.4 14 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+    </link>
+  </model>
+  <model name="wall_east">
+    <static>true</static><pose>8.8 0 0.8 0 0 0</pose><link name="link">
+      <collision name="collision"><geometry><box><size>0.4 14 1.6</size></box></geometry></collision>
+      <visual name="visual"><geometry><box><size>0.4 14 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+    </link>
+  </model>
+  <model name="wall_south">
+    <static>true</static><pose>0 -6.8 0.8 0 0 0</pose><link name="link">
+      <collision name="collision"><geometry><box><size>17.2 0.4 1.6</size></box></geometry></collision>
+      <visual name="visual"><geometry><box><size>17.2 0.4 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+    </link>
+  </model>
+  <model name="wall_north">
+    <static>true</static><pose>0 6.8 0.8 0 0 0</pose><link name="link">
+      <collision name="collision"><geometry><box><size>17.2 0.4 1.6</size></box></geometry></collision>
+      <visual name="visual"><geometry><box><size>17.2 0.4 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+    </link>
+  </model>
   <include><uri>model://shelf</uri><name>shelf_west_1</name><pose>-6 -1.8 0 0 0 0</pose></include>
   <include><uri>model://shelf</uri><name>shelf_west_2</name><pose>-6 1.8 0 0 0 0</pose></include>
   <include><uri>model://shelf</uri><name>shelf_east_1</name><pose>4 -1.8 0 0 0 0</pose></include>

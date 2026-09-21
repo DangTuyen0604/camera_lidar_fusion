@@ -11,13 +11,16 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     warehouse = Path(get_package_share_directory('warehouse_simulation'))
+    use_sim_time = LaunchConfiguration('use_sim_time')
     return LaunchDescription([
         DeclareLaunchArgument('gui', default_value='false'),
+        DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('use_scenario', default_value='true'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(warehouse / 'launch' / 'warehouse.launch.py')),
             launch_arguments={
                 'gui': LaunchConfiguration('gui'),
+                'use_sim_time': use_sim_time,
                 'use_scenario': LaunchConfiguration('use_scenario'),
             }.items()),
     ])

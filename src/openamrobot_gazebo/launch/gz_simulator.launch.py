@@ -31,11 +31,33 @@ def generate_launch_description():
         os.path.dirname(description_dir),
     ]
 
+    # VS Code installed through snap exports GTK / GIO search paths from the
+    # core20 runtime.  Native Jazzy GUI processes then load snap's libpthread
+    # and fail before creating a window.  Keep those paths out of Gazebo while
+    # leaving the ROS and Gazebo vendor library paths intact.
+    gui_environment = {
+        'GIO_MODULE_DIR': '',
+        'GTK_EXE_PREFIX': '',
+        'GTK_IM_MODULE_FILE': '',
+        'GTK_PATH': '',
+        'XDG_DATA_HOME': os.environ.get(
+            'XDG_DATA_HOME_VSCODE_SNAP_ORIG', ''),
+        'XDG_DATA_DIRS': os.environ.get(
+            'XDG_DATA_DIRS_VSCODE_SNAP_ORIG',
+            '/usr/local/share:/usr/share'),
+    }
+
     gz_resource_path = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH',
         value=[EnvironmentVariable('GZ_SIM_RESOURCE_PATH', default_value=''),
                ':', ':'.join(resource_paths)],
     )
+    # Isolate each launch from stale or unrelated Gazebo Transport publishers.
+    # Without this, a recently stopped simulation can make the next server
+    # namespace /clock and /stats, which also prevents /odom and /scan from
+    # reaching the ROS bridge.
+    gz_partition = SetEnvironmentVariable(
+        name='GZ_PARTITION', value=f'camera_lidar_fusion_{os.getpid()}')
 
     start_robot_state_publisher_cmd = Node(
         package='robot_state_publisher',
@@ -63,7 +85,8 @@ def generate_launch_description():
     gz_server = GzServer(world_sdf_file=world, verbosity_level=2)
     gz_gui = ExecuteProcess(
         cmd=['gz', 'sim', '-g', '-v', '2'],
-        condition=IfCondition(gui), output='screen')
+        condition=IfCondition(gui), output='screen',
+        additional_env=gui_environment)
 
     spawn_entity = Node(
         package='ros_gz_sim',
@@ -101,6 +124,7 @@ def generate_launch_description():
         DeclareLaunchArgument('spawn_z', default_value='0.20'),
         DeclareLaunchArgument('spawn_yaw', default_value='0.0'),
         gz_resource_path,
+        gz_partition,
         gz_server,
         gz_gui,
         bridge,

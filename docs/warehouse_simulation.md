@@ -18,3 +18,10 @@ The complete one-command stack is:
 ```bash
 ros2 launch navigation_bringup warehouse_full_demo.launch.py gui:=false
 ```
+
+For the operator-facing simulation with Gazebo GUI, RViz and mission autostart,
+use the top-level bringup:
+
+```bash
+ros2 launch fusion_bringup bringup_sim.launch.py
+```

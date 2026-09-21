@@ -51,10 +51,15 @@ cd camera_lidar_fusion
 ./scripts/install_dependencies.sh
 ./scripts/build_workspace.sh
 ./tools/download_kitti.sh
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch fusion_bringup bringup_sim.launch.py
 ./scripts/run_projection_demo.sh
 ./scripts/run_perception_demo.sh
-./scripts/run_warehouse_demo.sh gui:=false
 ```
+
+`bringup_sim.launch.py` starts Gazebo, the OpenAMRobot bridges, localization,
+Nav2, RViz and the autonomous warehouse mission in the required order.
 
 Audit, test và benchmark đầy đủ:
 

@@ -1,0 +1,11 @@
+# Remove returns from the OpenAMRobot rear chassis.  These bounds match the
+# empirically calibrated simulation profile in openamr-platform-sw: keep the
+# useful forward 280 degrees and mask the rear +/-40 degree body sector.
+scan_body_filter:
+  ros__parameters:
+    filter1:
+      name: body_filter
+      type: laser_filters/LaserScanAngularBoundsFilter
+      params:
+        lower_angle: -2.443
+        upper_angle: 2.443

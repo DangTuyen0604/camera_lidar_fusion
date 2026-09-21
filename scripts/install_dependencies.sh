@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eo pipefail
+set +u
 
 if [[ "$(. /etc/os-release && printf '%s' "$VERSION_CODENAME")" != "noble" ]]; then
   echo "This project targets Ubuntu 24.04 (noble) and ROS 2 Jazzy." >&2

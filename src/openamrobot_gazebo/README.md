@@ -36,7 +36,9 @@ Launch with any custom world file:
 ros2 launch openamrobot_gazebo gz_simulator.launch.py world:=/path/to/your_world.sdf
 ```
 
-This starts Gazebo Harmonic, spawns the robot, and brings up `robot_state_publisher`, `joint_state_publisher`, and the ROS–Gazebo bridge.
+This starts Gazebo Harmonic, spawns the robot, and brings up
+`robot_state_publisher` and the ROS–Gazebo bridge. Gazebo's joint-state system
+publishes `/joint_states` through that bridge.
 
 > **Note:** If your world references external meshes or resources, add their parent directory to `GZ_SIM_RESOURCE_PATH` before launching.
 
@@ -45,13 +47,15 @@ This starts Gazebo Harmonic, spawns the robot, and brings up `robot_state_publis
 | ROS 2 Topic | Type | Direction |
 |---|---|---|
 | `/clock` | `rosgraph_msgs/msg/Clock` | GZ → ROS |
+| `/joint_states` | `sensor_msgs/msg/JointState` | GZ → ROS |
 | `/odom` | `nav_msgs/msg/Odometry` | GZ → ROS |
 | `/tf` | `tf2_msgs/msg/TFMessage` | GZ → ROS |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | ROS → GZ |
 | `/scan` | `sensor_msgs/msg/LaserScan` | GZ → ROS |
 | `/imu` | `sensor_msgs/msg/Imu` | GZ → ROS |
-| `/rgb_image` | `sensor_msgs/msg/Image` | GZ → ROS |
+| `/camera/image_raw` | `sensor_msgs/msg/Image` | GZ → ROS |
 | `/camera/camera_info` | `sensor_msgs/msg/CameraInfo` | GZ → ROS |
+| `/lidar/points` | `sensor_msgs/msg/PointCloud2` | GZ → ROS |
 
 ## Launch Arguments
 
@@ -59,5 +63,5 @@ This starts Gazebo Harmonic, spawns the robot, and brings up `robot_state_publis
 |---|---|---|
 | `use_sim_time` | `True` | All nodes use `/clock` from Gazebo |
 | `use_robot_state_pub` | `True` | Start `robot_state_publisher` |
-| `world` | `worlds/walled_world.sdf` | Full path to any Gazebo world file |
+| `world` | `worlds/mobile_robot_world.sdf` | Full path to any Gazebo world file |
 | `gui` | `false` | Start Gazebo GUI; default `false` keeps simulation timing stable |

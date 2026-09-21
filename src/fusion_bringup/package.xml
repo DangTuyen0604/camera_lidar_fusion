@@ -14,6 +14,7 @@
   <exec_depend>kitti_ros2_player</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>navigation_bringup</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>yolo_detector</exec_depend>
 

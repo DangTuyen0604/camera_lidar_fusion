@@ -18,5 +18,7 @@ import xml.etree.ElementTree as ET
 
 def test_license_is_declared_and_shipped():
     package_root = Path(__file__).resolve().parents[1]
-    assert ET.parse(package_root / 'package.xml').findtext('license') == 'Apache-2.0'
-    assert (package_root / 'LICENSE').is_file()
+    assert ET.parse(package_root / 'package.xml').findtext('license') == 'MIT'
+    license_text = (package_root / 'LICENSE').read_text(encoding='utf-8')
+    assert 'MIT License' in license_text
+    assert (package_root / 'LICENSING.md').is_file()

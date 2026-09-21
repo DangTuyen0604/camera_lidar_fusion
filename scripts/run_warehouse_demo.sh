@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
+set +u
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
@@ -11,4 +12,5 @@ if [[ ! -f install/setup.bash ]]; then
   exit 1
 fi
 . install/setup.bash
+set -u
 ros2 launch navigation_bringup warehouse_full_demo.launch.py "$@"
