@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -128,30 +129,48 @@ private:
     }
 
     RejectionCounters batch;
-    auto points = DetectionObstacleBridge::extractFootprints(*message, config_, &batch);
+    auto candidates = DetectionObstacleBridge::extractCandidates(*message, config_, &batch);
     counters_.accepted += batch.accepted;
     counters_.invalid += batch.invalid;
     counters_.confidence += batch.confidence;
     counters_.range += batch.range;
     counters_.non_finite += batch.non_finite;
 
+    // An empty (or fully rejected) batch is not a fresh obstacle observation.
+    // Do not move last_observation_ forward: the timeout path must still clear
+    // points published by the last valid batch.
+    if (candidates.empty()) {
+      ++rejected_empty_batch_;
+      last_status_ = "No valid detections in batch";
+      return;
+    }
+
     std::vector<ObstaclePoint> transformed;
-    transformed.reserve(points.size());
     try {
       const auto transform = tf_buffer_.lookupTransform(
         target_frame_, message->header.frame_id, stamp,
         rclcpp::Duration::from_seconds(tf_timeout_));
-      for (const auto & point : points) {
+      for (const auto & candidate : candidates) {
         geometry_msgs::msg::PointStamped input;
         geometry_msgs::msg::PointStamped output;
         input.header = message->header;
-        input.point.x = point.x;
-        input.point.y = point.y;
-        input.point.z = point.z;
+        input.point.x = candidate.position.x;
+        input.point.y = candidate.position.y;
+        input.point.z = candidate.position.z;
         tf2::doTransform(input, output, transform);
-        transformed.push_back({
-            static_cast<float>(output.point.x), static_cast<float>(output.point.y),
-            static_cast<float>(output.point.z)});
+        if (!std::isfinite(output.point.x) || !std::isfinite(output.point.y) ||
+          !std::isfinite(output.point.z))
+        {
+          ++rejected_transformed_non_finite_;
+          last_status_ = "TF produced a non-finite obstacle point";
+          return;
+        }
+        const ObstaclePoint center{
+          static_cast<float>(output.point.x), static_cast<float>(output.point.y),
+          static_cast<float>(output.point.z)};
+        auto footprint = DetectionObstacleBridge::expandFootprint(
+          center, candidate.class_name, config_.footprint_resolution);
+        transformed.insert(transformed.end(), footprint.begin(), footprint.end());
       }
     } catch (const tf2::TransformException & error) {
       ++rejected_tf_;
@@ -171,22 +190,25 @@ private:
 
   void onTimer()
   {
-    if (!has_observation_ || clearing_sent_ ||
-      (now() - last_observation_).seconds() <= obstacle_timeout_)
-    {
+    if (!has_observation_ || (now() - last_observation_).seconds() <= obstacle_timeout_) {
       return;
     }
-    std::vector<ObstaclePoint> rays;
-    rays.reserve(last_points_.size());
-    for (const auto & p : last_points_) {
-      rays.push_back({p.x * 1.05F, p.y * 1.05F, p.z});
+    if (!clearing_sent_) {
+      std::vector<ObstaclePoint> rays;
+      rays.reserve(last_points_.size());
+      for (const auto & p : last_points_) {
+        rays.push_back({p.x * 1.05F, p.y * 1.05F, p.z});
+      }
+      clearing_publisher_->publish(makeCloud(rays, now()));
+      last_points_.clear();
+      clearing_sent_ = true;
+      ++clearing_publications_;
+      last_status_ = "Obstacle timeout: clearing published";
     }
-    clearing_publisher_->publish(makeCloud(rays, now()));
+    // Collision Monitor treats a silent PointCloud source as failed. Keep a
+    // fresh empty observation flowing after expiry while publishing the
+    // costmap clearing rays only once.
     publisher_->publish(makeCloud({}, now()));
-    last_points_.clear();
-    clearing_sent_ = true;
-    ++clearing_publications_;
-    last_status_ = "Obstacle timeout: clearing published";
   }
 
   void publishDiagnostics()
@@ -205,10 +227,12 @@ private:
       keyValue("rejected_confidence", counters_.confidence),
       keyValue("rejected_range", counters_.range),
       keyValue("rejected_non_finite", counters_.non_finite),
+      keyValue("rejected_empty_batch", rejected_empty_batch_),
       keyValue("rejected_empty_frame", rejected_empty_frame_),
       keyValue("rejected_zero_stamp", rejected_zero_stamp_),
       keyValue("rejected_stale", rejected_stale_), keyValue("rejected_future", rejected_future_),
       keyValue("rejected_missing_tf", rejected_tf_),
+      keyValue("rejected_transformed_non_finite", rejected_transformed_non_finite_),
       keyValue("clearing_publications", clearing_publications_)};
     array.status.push_back(status);
     diagnostics_publisher_->publish(array);
@@ -228,6 +252,8 @@ private:
   std::uint64_t rejected_stale_{0};
   std::uint64_t rejected_future_{0};
   std::uint64_t rejected_tf_{0};
+  std::uint64_t rejected_empty_batch_{0};
+  std::uint64_t rejected_transformed_non_finite_{0};
   std::uint64_t clearing_publications_{0};
   std::string last_status_{"Waiting for detections"};
   rclcpp::Time last_observation_{0, 0, RCL_ROS_TIME};

@@ -13,6 +13,9 @@ def test_collision_monitor_owns_final_velocity_command():
     assert monitor['cmd_vel_in_topic'] == 'cmd_vel_smoothed'
     assert monitor['cmd_vel_out_topic'] == 'cmd_vel'
     assert monitor['scan']['topic'] == '/scan_filtered'
+    assert monitor['detection_obstacles']['topic'] == (
+        '/navigation/detection_obstacles')
+    assert monitor['detection_obstacles']['type'] == 'pointcloud'
     assert monitor['base_frame_id'] == 'base_link'
     assert monitor['odom_frame_id'] == 'odom'
 

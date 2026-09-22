@@ -1,0 +1,31 @@
+{
+  "calibration_perturbation": {
+    "projection_error_increase_px": 7.239829,
+    "rotation_deg": 3.0,
+    "translation_m": 0.05
+  },
+  "density_reduction": {
+    "deterministic_repeat_equal": true,
+    "input_points": 100,
+    "output_points": 25,
+    "retained_fraction": 0.25
+  },
+  "lost_detection": {
+    "canonical_runs": 3,
+    "minimum_empty_heartbeats": 105,
+    "obstacle_expired_in_every_run": true,
+    "obstacle_expiry_mean_s": 0.845333
+  },
+  "pointcloud_noise": {
+    "measured_xyz_rms_change_m": 0.097816,
+    "stddev_m": 0.1
+  },
+  "seed": 12014,
+  "timestamp_delay": {
+    "drop_verified_by_core_test": true,
+    "healthy": false,
+    "injected_ms": 80.0,
+    "observable_status": "DELAYED",
+    "tolerance_ms": 50.0
+  }
+}

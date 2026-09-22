@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <limits>
 
 #include <gtest/gtest.h>
@@ -37,7 +38,7 @@ TEST(DetectionObstacleBridge, RejectsInvalidThresholds)
 TEST(DetectionObstacleBridge, RejectsInvalidNonFiniteConfidenceAndRange)
 {
   fusion_interfaces::msg::FusedDetectionArray message;
-  message.detections.resize(5);
+  message.detections.resize(7);
   for (auto & detection : message.detections) {
     detection.valid = true;
     detection.detection.confidence = 0.9F;
@@ -47,6 +48,8 @@ TEST(DetectionObstacleBridge, RejectsInvalidNonFiniteConfidenceAndRange)
   message.detections[1].detection.confidence = 0.1F;
   message.detections[2].position.x = std::numeric_limits<double>::quiet_NaN();
   message.detections[3].position.x = 100.0;
+  message.detections[4].position.y = std::numeric_limits<double>::infinity();
+  message.detections[5].position.z = -std::numeric_limits<double>::infinity();
 
   navigation_bridge::BridgeConfig config;
   config.minimum_confidence = 0.5;
@@ -59,7 +62,7 @@ TEST(DetectionObstacleBridge, RejectsInvalidNonFiniteConfidenceAndRange)
   EXPECT_EQ(counters.accepted, 1U);
   EXPECT_EQ(counters.invalid, 1U);
   EXPECT_EQ(counters.confidence, 1U);
-  EXPECT_EQ(counters.non_finite, 1U);
+  EXPECT_EQ(counters.non_finite, 3U);
   EXPECT_EQ(counters.range, 1U);
 }
 
@@ -74,6 +77,45 @@ TEST(DetectionObstacleBridge, UsesClassSpecificFootprints)
   EXPECT_DOUBLE_EQ(pallet.second, 0.80);
   EXPECT_DOUBLE_EQ(box.first, 0.60);
   EXPECT_DOUBLE_EQ(box.second, 0.60);
+}
+
+TEST(DetectionObstacleBridge, AcceptsForwardDistanceInCameraOpticalZ)
+{
+  fusion_interfaces::msg::FusedDetectionArray message;
+  message.detections.resize(1);
+  auto & detection = message.detections.front();
+  detection.valid = true;
+  detection.detection.class_name = "person";
+  detection.detection.confidence = 0.9F;
+  detection.position.z = 2.0;
+
+  navigation_bridge::BridgeConfig config;
+  navigation_bridge::RejectionCounters counters;
+  const auto candidates = navigation_bridge::DetectionObstacleBridge::extractCandidates(
+    message, config, &counters);
+
+  ASSERT_EQ(candidates.size(), 1U);
+  EXPECT_FLOAT_EQ(candidates.front().position.z, 2.0F);
+  EXPECT_EQ(candidates.front().class_name, "person");
+  EXPECT_EQ(counters.accepted, 1U);
+}
+
+TEST(DetectionObstacleBridge, ExpandsFootprintAfterTargetFrameTransform)
+{
+  const navigation_bridge::ObstaclePoint center{2.0F, 1.0F, 0.2F};
+  const auto footprint = navigation_bridge::DetectionObstacleBridge::expandFootprint(
+    center, "person", 0.10);
+  ASSERT_FALSE(footprint.empty());
+  auto x_limits = std::minmax_element(
+    footprint.begin(), footprint.end(),
+    [](const auto & left, const auto & right) {return left.x < right.x;});
+  auto y_limits = std::minmax_element(
+    footprint.begin(), footprint.end(),
+    [](const auto & left, const auto & right) {return left.y < right.y;});
+  EXPECT_FLOAT_EQ(x_limits.first->x, 1.7F);
+  EXPECT_FLOAT_EQ(x_limits.second->x, 2.3F);
+  EXPECT_FLOAT_EQ(y_limits.first->y, 0.7F);
+  EXPECT_FLOAT_EQ(y_limits.second->y, 1.3F);
 }
 
 TEST(DetectionObstacleBridge, RejectsBadFootprintConfiguration)

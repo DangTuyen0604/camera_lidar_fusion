@@ -17,6 +17,12 @@ struct ObstaclePoint
   float z{0.0F};
 };
 
+struct ObstacleCandidate
+{
+  ObstaclePoint position;
+  std::string class_name;
+};
+
 struct BridgeConfig
 {
   double minimum_confidence{0.35};
@@ -46,6 +52,16 @@ public:
     const fusion_interfaces::msg::FusedDetectionArray & detections,
     const BridgeConfig & config,
     RejectionCounters * counters = nullptr);
+
+  static std::vector<ObstacleCandidate> extractCandidates(
+    const fusion_interfaces::msg::FusedDetectionArray & detections,
+    const BridgeConfig & config,
+    RejectionCounters * counters = nullptr);
+
+  static std::vector<ObstaclePoint> expandFootprint(
+    const ObstaclePoint & center,
+    const std::string & class_name,
+    double resolution);
 
   static std::pair<double, double> footprintSize(const std::string & class_name);
 };

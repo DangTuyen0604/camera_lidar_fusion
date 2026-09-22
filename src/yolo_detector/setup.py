@@ -29,6 +29,8 @@ setup(
         'console_scripts': [
             'yolo_detector = '
             'yolo_detector.yolo_detector_node:main',
+            'simulation_color_detector = '
+            'yolo_detector.simulation_color_detector_node:main',
         ],
     },
 )

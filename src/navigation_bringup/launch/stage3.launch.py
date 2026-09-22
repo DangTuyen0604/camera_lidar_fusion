@@ -64,6 +64,17 @@ def generate_launch_description():
             remappings=[('scan', '/scan'),
                         ('scan_filtered', '/scan_filtered')],
         ),
+        Node(
+            package='navigation_bridge',
+            executable='detection_obstacle_bridge_node',
+            output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'target_frame': 'base_link',
+                'stale_timeout': 0.5,
+                'obstacle_timeout': 0.75,
+            }],
+        ),
         TimerAction(period=3.0, actions=[
             include('navigation_bringup', 'localization.launch.py', {
                 'use_sim_time': use_sim_time,

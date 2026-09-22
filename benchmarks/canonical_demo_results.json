@@ -1,0 +1,164 @@
+{
+  "runs": [
+    {
+      "bridge_nonempty_clouds": 1,
+      "camera_detection": {
+        "class": "worker",
+        "confidence": 0.99
+      },
+      "camera_rate_hz": 10.457,
+      "collision_actions": [
+        1,
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detection_rate_hz": 4.301,
+      "evidence": {
+        "camera_frames": 154,
+        "detections_received": 62,
+        "empty_bridge_heartbeats_after_removal": 105,
+        "fused_messages_received": 62,
+        "localized": true,
+        "nav_paths_received": 12,
+        "pointcloud_frames": 131,
+        "static_map_occupied_cells": 4131
+      },
+      "fused_xyz_camera_optical": [
+        0.001,
+        0.032,
+        0.566
+      ],
+      "fusion_rate_hz": 4.299,
+      "goal_duration_s": 11.85,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 38,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "obstacle_expiry_s": 0.826,
+      "obstacle_reaction_latency_ms": 115.017,
+      "pipeline_end_to_end_mean_ms": 69.078,
+      "pointcloud_rate_hz": 8.98,
+      "result": "PASS",
+      "run": 1,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.907
+    },
+    {
+      "bridge_nonempty_clouds": 1,
+      "camera_detection": {
+        "class": "worker",
+        "confidence": 0.99
+      },
+      "camera_rate_hz": 10.233,
+      "collision_actions": [
+        1,
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detection_rate_hz": 4.177,
+      "evidence": {
+        "camera_frames": 155,
+        "detections_received": 63,
+        "empty_bridge_heartbeats_after_removal": 105,
+        "fused_messages_received": 63,
+        "localized": true,
+        "nav_paths_received": 12,
+        "pointcloud_frames": 135,
+        "static_map_occupied_cells": 4131
+      },
+      "fused_xyz_camera_optical": [
+        0.001,
+        0.032,
+        0.566
+      ],
+      "fusion_rate_hz": 4.176,
+      "goal_duration_s": 11.751,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 38,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "obstacle_expiry_s": 0.853,
+      "obstacle_reaction_latency_ms": 2.897,
+      "pipeline_end_to_end_mean_ms": 68.703,
+      "pointcloud_rate_hz": 8.987,
+      "result": "PASS",
+      "run": 2,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.546
+    },
+    {
+      "bridge_nonempty_clouds": 1,
+      "camera_detection": {
+        "class": "worker",
+        "confidence": 0.99
+      },
+      "camera_rate_hz": 10.042,
+      "collision_actions": [
+        1,
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detection_rate_hz": 3.872,
+      "evidence": {
+        "camera_frames": 147,
+        "detections_received": 57,
+        "empty_bridge_heartbeats_after_removal": 106,
+        "fused_messages_received": 57,
+        "localized": true,
+        "nav_paths_received": 12,
+        "pointcloud_frames": 130,
+        "static_map_occupied_cells": 4131
+      },
+      "fused_xyz_camera_optical": [
+        0.001,
+        0.032,
+        0.566
+      ],
+      "fusion_rate_hz": 3.872,
+      "goal_duration_s": 11.952,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 38,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "obstacle_expiry_s": 0.857,
+      "obstacle_reaction_latency_ms": 122.544,
+      "pipeline_end_to_end_mean_ms": 71.298,
+      "pointcloud_rate_hz": 8.945,
+      "result": "PASS",
+      "run": 3,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.337
+    }
+  ],
+  "summary": {
+    "all_successful": true,
+    "consecutive_successes": 3,
+    "mean": {
+      "camera_rate_hz": 10.244,
+      "detection_rate_hz": 4.117,
+      "fusion_rate_hz": 4.116,
+      "goal_duration_s": 11.851,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "obstacle_expiry_s": 0.845,
+      "obstacle_reaction_latency_ms": 80.153,
+      "pipeline_end_to_end_mean_ms": 69.693,
+      "pointcloud_rate_hz": 8.971,
+      "sync_delay_mean_ms": 20.597
+    },
+    "runs": 3,
+    "scenario": "canonical_perception_navigation",
+    "seed": 12012
+  }
+}

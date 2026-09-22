@@ -22,7 +22,7 @@ std::vector<ObstaclePoint> DetectionObstacleBridge::extractObstacles(
   output.reserve(detections.detections.size());
   for (const auto & detection : detections.detections) {
     const auto & position = detection.position;
-    const double range = std::hypot(position.x, position.y);
+    const double range = std::hypot(position.x, position.y, position.z);
     if (!detection.valid || detection.detection.confidence < minimum_confidence ||
       !std::isfinite(position.x) || !std::isfinite(position.y) ||
       !std::isfinite(position.z) || range > maximum_range)
@@ -56,6 +56,20 @@ std::vector<ObstaclePoint> DetectionObstacleBridge::extractFootprints(
   const BridgeConfig & config,
   RejectionCounters * counters)
 {
+  std::vector<ObstaclePoint> output;
+  for (const auto & candidate : extractCandidates(detections, config, counters)) {
+    auto footprint = expandFootprint(
+      candidate.position, candidate.class_name, config.footprint_resolution);
+    output.insert(output.end(), footprint.begin(), footprint.end());
+  }
+  return output;
+}
+
+std::vector<ObstacleCandidate> DetectionObstacleBridge::extractCandidates(
+  const fusion_interfaces::msg::FusedDetectionArray & detections,
+  const BridgeConfig & config,
+  RejectionCounters * counters)
+{
   if (!std::isfinite(config.minimum_confidence) || config.minimum_confidence < 0.0 ||
     config.minimum_confidence > 1.0 || !std::isfinite(config.minimum_range) ||
     config.minimum_range < 0.0 || !std::isfinite(config.maximum_range) ||
@@ -67,7 +81,8 @@ std::vector<ObstaclePoint> DetectionObstacleBridge::extractFootprints(
 
   RejectionCounters local;
   auto & count = counters == nullptr ? local : *counters;
-  std::vector<ObstaclePoint> output;
+  std::vector<ObstacleCandidate> output;
+  output.reserve(detections.detections.size());
   for (const auto & detection : detections.detections) {
     const auto & p = detection.position;
     if (!detection.valid) {
@@ -84,24 +99,38 @@ std::vector<ObstaclePoint> DetectionObstacleBridge::extractFootprints(
       ++count.non_finite;
       continue;
     }
-    const double range = std::hypot(p.x, p.y);
+    const double range = std::hypot(p.x, p.y, p.z);
     if (range < config.minimum_range || range > config.maximum_range) {
       ++count.range;
       continue;
     }
-
-    const auto [length, width] = footprintSize(detection.detection.class_name);
-    const int nx = std::max(1, static_cast<int>(std::ceil(length / config.footprint_resolution)));
-    const int ny = std::max(1, static_cast<int>(std::ceil(width / config.footprint_resolution)));
-    for (int ix = 0; ix <= nx; ++ix) {
-      for (int iy = 0; iy <= ny; ++iy) {
-        output.push_back({
-            static_cast<float>(p.x - length * 0.5 + length * ix / nx),
-            static_cast<float>(p.y - width * 0.5 + width * iy / ny),
-            static_cast<float>(p.z)});
-      }
-    }
+    output.push_back({
+        {static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z)},
+        detection.detection.class_name});
     ++count.accepted;
+  }
+  return output;
+}
+
+std::vector<ObstaclePoint> DetectionObstacleBridge::expandFootprint(
+  const ObstaclePoint & center,
+  const std::string & class_name,
+  double resolution)
+{
+  if (!std::isfinite(resolution) || resolution <= 0.0) {
+    throw std::invalid_argument("Invalid footprint resolution");
+  }
+  const auto [length, width] = footprintSize(class_name);
+  const int nx = std::max(1, static_cast<int>(std::ceil(length / resolution)));
+  const int ny = std::max(1, static_cast<int>(std::ceil(width / resolution)));
+  std::vector<ObstaclePoint> output;
+  output.reserve(static_cast<std::size_t>((nx + 1) * (ny + 1)));
+  for (int ix = 0; ix <= nx; ++ix) {
+    for (int iy = 0; iy <= ny; ++iy) {
+      output.push_back({
+          static_cast<float>(center.x - length * 0.5 + length * ix / nx),
+          static_cast<float>(center.y - width * 0.5 + width * iy / ny), center.z});
+    }
   }
   return output;
 }

@@ -1,263 +1,260 @@
-# Camera–LiDAR Fusion với KITTI và ROS 2
+# Camera–LiDAR Fusion Navigation
 
 [![Build and test](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/build-and-test.yml)
 [![Lint](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml/badge.svg)](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml)
 
-Demo phát ảnh màu, `CameraInfo` và point cloud Velodyne từ KITTI, đồng bộ
-timestamp, đọc calibration, chiếu LiDAR lên ảnh, hiển thị bằng RViz và ghi
-rosbag.
+## 1. Project overview
 
-## Nền tảng đã chọn
+ROS 2 project for an autonomous mobile robot (AMR) that combines camera
+detections with LiDAR depth, transforms fused XYZ detections with TF2, and
+publishes expiring obstacles to Nav2 costmaps and Collision Monitor. The
+canonical demo runs the complete chain in Gazebo; KITTI playback is available
+for offline calibration, projection, and perception experiments.
 
-Dự án dùng **Ubuntu 24.04 + ROS 2 Jazzy**. Đây là tổ hợp được hỗ trợ trực tiếp
-trên máy hiện tại. ROS 2 Humble nhắm tới Ubuntu 22.04 và không được dùng trong
-workspace này.
+The final path is real message flow, not direct costmap injection:
 
-## Cấu trúc chính
+`camera + LiDAR -> detection -> fusion -> obstacle bridge -> Nav2 -> AMR`
 
-- `kitti_ros2_player` (Python): đọc KITTI, tạo message, calibration, projection
-  và static TF.
-- `perception_core` (C++): calibration, projection, depth estimator,
-  `sensor_sync_node` và typed `object_fusion_node`.
-- `fusion_bringup`: launch file và cấu hình RViz.
-- `fusion_interfaces`: message ROS 2 dùng chung cho detection, calibration,
-  synchronization và metrics.
-- `yolo_detector`: detector ONNX publish `Detection2DArray`.
-- `navigation_bringup` và `navigation_bridge`: tài nguyên Nav2 và điểm mở rộng
-  để chuyển fused detection thành vật cản.
-- `system_tests`: khung integration test cấp hệ thống.
-- `warehouse_simulation` và `warehouse_mission_manager`: warehouse động,
-  docking, cargo và chuỗi nhiệm vụ M01–M04.
-- `benchmarks`: runner 16 cấu hình, collector metric ROS thật và biểu đồ Gate 6.2.
-- `docker`: hai profile `runtime-cpu` và `training`, cùng năm service runtime.
+## 2. Architecture
 
-Tài liệu chi tiết nằm trong `docs/`, gồm architecture, installation, dataset,
-projection, synchronization, fusion, calibration, navigation, warehouse,
-mission, dynamic obstacle, person safety, docking, benchmark, testing, Docker
-và limitations.
+```mermaid
+flowchart TD
+    Camera[Camera] --> Detection[Detection]
+    Detection --> Fusion[Projection / Fusion]
+    LiDAR[LiDAR] --> Fusion
+    Fusion --> XYZ[Fused XYZ]
+    XYZ --> Bridge[Detection Obstacle Bridge]
+    Bridge --> Nav2[Nav2 costmaps + Collision Monitor]
+    Nav2 --> AMR[AMR]
 
-## Cài đặt
+    Gazebo --> RosGz[ros_gz_bridge]
+    RosGz --> Runtime[clock / odom / tf / scan / camera / point cloud]
+    Runtime --> Nav2
+    Runtime --> RViz[RViz]
+```
+
+The safety command chain is:
+
+`controller_server -> /cmd_vel_nav -> velocity_smoother ->
+/cmd_vel_smoothed -> collision_monitor -> /cmd_vel -> ros_gz_bridge -> Gazebo`
+
+## 3. Package structure
+
+| Package/directory | Responsibility |
+|---|---|
+| `fusion_interfaces` | Typed detection, fusion, sync, calibration, and metric messages |
+| `kitti_ros2_player` | KITTI image/point-cloud playback, calibration, and static TF |
+| `yolo_detector` | ONNX detector and deterministic simulation color detector |
+| `perception_core` | Synchronization, projection, depth estimation, fused XYZ, and metrics |
+| `navigation_bridge` | Validation, TF2 transform, obstacle footprint, timeout, and clearing |
+| `navigation_bringup` | Localization, Nav2, costmaps, velocity smoother, Collision Monitor, RViz |
+| `openamrobot_description` | Robot URDF/Xacro and TF links |
+| `openamrobot_gazebo` | Gazebo robot spawn and ROS–Gazebo bridges |
+| `warehouse_simulation` | Canonical warehouse world and simulated objects |
+| `warehouse_mission_manager` | Warehouse mission utilities |
+| `fusion_bringup` | Top-level perception and final demo launch files |
+| `system_tests` | Behavioral and live launch tests |
+| `benchmarks`, `experiments` | Reproducible metrics and deterministic fault results |
+
+## 4. Requirements
+
+- Ubuntu 24.04 (Noble), x86-64
+- ROS 2 Jazzy Desktop
+- Gazebo Harmonic through `ros_gz`
+- Nav2, Collision Monitor, laser filters, TF2, OpenCV, Eigen, and yaml-cpp
+- Python 3.12; the optional ONNX/KITTI tools use `requirements.txt`
+
+Install system dependencies and the project Python environment:
 
 ```bash
-cd camera_lidar_fusion
 ./scripts/install_dependencies.sh
 ```
 
-## Quick start từ fresh clone
+The script installs apt/rosdep dependencies and creates `.venv`. Do not source
+`.venv` for normal ROS launch commands; it is intended for standalone tooling.
 
-```bash
-git clone https://github.com/DangTuyen0604/camera_lidar_fusion.git
-cd camera_lidar_fusion
-./scripts/install_dependencies.sh
-./scripts/build_workspace.sh
-./tools/download_kitti.sh
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-ros2 launch fusion_bringup bringup_sim.launch.py
-./scripts/run_projection_demo.sh
-./scripts/run_perception_demo.sh
-```
+## 5. Build
 
-`bringup_sim.launch.py` starts Gazebo, the OpenAMRobot bridges, localization,
-Nav2, RViz and the autonomous warehouse mission in the required order.
-
-Audit, test và benchmark đầy đủ:
-
-```bash
-./scripts/run_audit.sh --full
-./scripts/run_benchmarks.sh
-```
-
-Nếu ROS 2 Jazzy đã được cài, có thể chỉ cài dependency từ package:
+From the repository root:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
-```
-
-## Chuẩn bị KITTI
-
-Tải calibration và raw sequence `2011_09_26_drive_0005_sync`:
-
-```bash
-./tools/download_kitti.sh
-```
-
-Dữ liệu nằm trong `data/kitti/2011_09_26`. Demo yêu cầu 154 ảnh
-`image_02` và 154 file `velodyne_points` có cùng frame ID.
-
-## Build và test
-
-```bash
-./scripts/build_workspace.sh
+colcon build --symlink-install
 source install/setup.bash
-colcon test --event-handlers console_direct+
-colcon test-result --verbose
 ```
 
-Integration test dùng frame KITTI thật nếu dataset có mặt; nếu chưa tải, test
-đó được đánh dấu skip.
+For a reproducible clean build:
 
-## Chạy projection demo
+```bash
+rm -rf build install log
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
 
-Từ thư mục gốc repository:
+## 6. Run
+
+Canonical one-command demo from a fresh terminal:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-ros2 launch fusion_bringup projection_demo.launch.py
+ros2 launch fusion_bringup final_demo.launch.py
 ```
 
-Không mở RViz:
+This starts Gazebo, the robot, bridges, localization, Nav2, camera, LiDAR,
+detector, fusion, obstacle bridge, metrics, and RViz. For CI/headless systems:
 
 ```bash
-ros2 launch fusion_bringup projection_demo.launch.py use_rviz:=false
+ros2 launch fusion_bringup final_demo.launch.py \
+  use_rviz:=false gazebo_gui:=false
 ```
 
-Dataset ở vị trí khác:
+Optional KITTI projection demo:
 
 ```bash
-ros2 launch fusion_bringup projection_demo.launch.py \
-  dataset_root:=/absolute/path/to/2011_09_26
+./tools/download_kitti.sh
+ros2 launch fusion_bringup projection_demo.launch.py use_rviz:=true
 ```
 
-RViz dùng fixed frame `velodyne`, hiển thị point cloud, cây TF và ảnh
-projection đã tô màu theo khoảng cách.
-
-## Chạy perception demo hoàn chỉnh
-
-Đặt model ONNX tại `models/yolov8n-opencv.onnx`, sau đó chạy:
+Optional ONNX perception demo expects `models/yolov8n-opencv.onnx`:
 
 ```bash
 ./scripts/run_perception_demo.sh
 ```
 
-Dataset và model ở vị trí khác được truyền qua launch argument:
+## 7. Topics
 
-```bash
-./scripts/run_perception_demo.sh \
-  dataset_root:=/path/to/2011_09_26 \
-  model_path:=/path/to/yolov8n-opencv.onnx
-```
+Canonical simulation interfaces:
 
-RViz hiển thị ảnh đồng bộ, projection LiDAR, bbox YOLO, bbox kèm depth/XYZ
-và marker 3D. Có thể chạy không giao diện bằng `use_rviz:=false`.
-
-## Topic và frame
-
-| Topic | Type | Frame |
+| Topic | Type | Purpose |
 |---|---|---|
-| `/kitti/camera/image_raw` | `sensor_msgs/msg/Image` | `camera_optical_frame` |
-| `/kitti/camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `camera_optical_frame` |
-| `/kitti/velodyne/points` | `sensor_msgs/msg/PointCloud2` | `velodyne` |
-| `/kitti/camera/lidar_overlay` | `sensor_msgs/msg/Image` | `camera_optical_frame` |
-| `/fusion/synced/image` | `sensor_msgs/msg/Image` | `camera_optical_frame` |
-| `/fusion/synced/camera_info` | `sensor_msgs/msg/CameraInfo` | `camera_optical_frame` |
-| `/fusion/synced/points` | `sensor_msgs/msg/PointCloud2` | `velodyne` |
-| `/fusion/sync_status` | `fusion_interfaces/msg/SyncStatus` | `camera_optical_frame` |
-| `/detections_2d` | `fusion_interfaces/msg/Detection2DArray` | `camera_optical_frame` |
-| `/fusion/detections_3d` | `fusion_interfaces/msg/FusedDetectionArray` | `camera_optical_frame` |
-| `/fusion/annotated_image` | `sensor_msgs/msg/Image` | `camera_optical_frame` |
-| `/fusion/object_markers` | `visualization_msgs/msg/MarkerArray` | `camera_optical_frame` |
-| `/tf_static` | `tf2_msgs/msg/TFMessage` | `velodyne → camera_optical_frame` |
+| `/camera/image_raw` | `sensor_msgs/msg/Image` | Gazebo camera image |
+| `/camera/camera_info` | `sensor_msgs/msg/CameraInfo` | Camera calibration |
+| `/lidar/points` | `sensor_msgs/msg/PointCloud2` | Gazebo LiDAR cloud |
+| `/fusion/synced/*` | Image, CameraInfo, PointCloud2 | Time-aligned sensor inputs |
+| `/detections_2d` | `fusion_interfaces/msg/Detection2DArray` | Image detections |
+| `/fusion/detections_3d` | `fusion_interfaces/msg/FusedDetectionArray` | Valid/invalid fused XYZ results |
+| `/fusion/sync_status` | `fusion_interfaces/msg/SyncStatus` | Synchronization health and delay |
+| `/fusion/metrics` | `fusion_interfaces/msg/PipelineMetrics` | Runtime perception metrics |
+| `/navigation/detection_obstacles` | `sensor_msgs/msg/PointCloud2` | Bridge obstacles for Nav2 and Collision Monitor |
+| `/navigation/detection_obstacles/clearing` | `sensor_msgs/msg/PointCloud2` | Costmap clearing rays after expiry |
+| `/scan`, `/scan_filtered` | `sensor_msgs/msg/LaserScan` | Raw and robot-body-filtered scan |
+| `/odom`, `/tf`, `/tf_static`, `/clock` | Standard ROS messages | Localization and simulation time |
+| `/cmd_vel_nav` | `geometry_msgs/msg/Twist` | Controller output |
+| `/cmd_vel_smoothed` | `geometry_msgs/msg/Twist` | Velocity smoother output |
+| `/cmd_vel` | `geometry_msgs/msg/Twist` | Collision-checked command sent to Gazebo |
 
-Point cloud có bốn field `float32`: `x`, `y`, `z`, `intensity`.
-Các publisher dùng reliable QoS để tránh mất frame khi ghi bag cục bộ.
+Inspect the live contract with `ros2 topic list -t` and
+`ros2 topic info <topic> --verbose`.
 
-## Chính sách timestamp
+## 8. TF tree
 
-Mặc định `timestamp_policy:=rebase_kitti`:
+Canonical simulation tree:
 
-1. Đọc timestamp nanosecond từ `image_02/timestamps.txt` và
-   `velodyne_points/timestamps.txt`.
-2. Kiểm tra số lượng, thứ tự tăng dần và độ lệch camera–LiDAR. Node dừng nếu
-   độ lệch lớn hơn `max_sensor_time_offset_sec` (mặc định 50 ms).
-3. Dùng timeline của camera, rebase frame đầu vào thời gian ROS hiện tại và
-   giữ nguyên khoảng cách thời gian giữa các frame KITTI.
-4. Gán cùng một header stamp cho Image, CameraInfo, PointCloud2 và overlay của
-   cùng frame. Khi loop, timestamp tiếp tục tăng và không quay ngược.
-
-Có thể dùng `timestamp_policy:=ros_now` để gán thời gian phát hiện tại, nhưng
-chế độ này không giữ timeline gốc của KITTI.
-
-## Chọn định dạng calibration
-
-Player hỗ trợ hai nguồn calibration nhưng tạo cùng một `CameraInfo`, TF và
-ma trận projection:
-
-```bash
-# Đọc trực tiếp calib_cam_to_cam.txt và calib_velo_to_cam.txt của KITTI
-ros2 launch fusion_bringup projection_demo.launch.py \
-  calibration_format:=kitti
-
-# Đọc intrinsic và extrinsic từ YAML
-ros2 launch fusion_bringup projection_demo.launch.py \
-  calibration_format:=yaml
+```text
+map
+└── odom
+    └── base_footprint
+        └── base_link
+            ├── lidar_link
+            └── camera_link
+                └── camera_optical_frame
 ```
 
-Hai file mặc định của chế độ YAML là:
-
-- `src/fusion_bringup/config/camera_intrinsics.yaml`
-- `src/fusion_bringup/config/lidar_camera_extrinsics.yaml`
-
-Có thể thay file khi chạy:
+Fused detections retain their source frame. The obstacle bridge looks up TF at
+the detection timestamp and transforms them into `base_link`; it never assumes
+a missing camera frame. Verify the live tree with:
 
 ```bash
-ros2 launch fusion_bringup projection_demo.launch.py \
-  calibration_format:=yaml \
-  camera_intrinsics_yaml:=/absolute/path/intrinsics.yaml \
-  extrinsics_yaml:=/absolute/path/extrinsics.yaml
+ros2 run tf2_tools view_frames
+ros2 run tf2_ros tf2_echo base_link camera_optical_frame
+ros2 run tf2_ros tf2_echo base_link lidar_link
 ```
 
-YAML extrinsic dùng quy ước TF2 `child_pose_in_parent`. Với parent
-`velodyne` và child `camera_optical_frame`, projection sẽ tự lấy nghịch đảo
-để biến điểm LiDAR sang hệ camera. Node từ chối YAML có frame hoặc quy ước sai.
+KITTI playback uses `velodyne -> camera_optical_frame` from the selected
+calibration file.
 
-Static TF được tính từ `R_rect_00 × Tr_velo_to_cam`. Vì TF lưu pose của child
-trong parent, node phát ma trận nghịch đảo với parent `velodyne` và child
-`camera_optical_frame`.
+## 9. Demo
 
-## Ghi và phát rosbag
+The one canonical scenario localizes the AMR, sends a Nav2 goal, introduces a
+physical simulated worker after motion begins, observes camera/LiDAR fusion,
+slows or stops through Collision Monitor, expires the lost obstacle, and then
+reaches the goal without collision.
 
-Terminal 1:
+Run it three times and save evidence:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-ros2 launch fusion_bringup projection_demo.launch.py use_rviz:=false
+python3 benchmarks/run_canonical_demo.py --runs 3
 ```
 
-Terminal 2:
+Results are written to `benchmarks/canonical_demo_results.json` and `.csv`.
+The checked-in baseline records 3/3 consecutive successful runs with seed
+`12012`.
+
+## 10. Tests
 
 ```bash
-./scripts/record_personal_bag.sh
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+colcon test --event-handlers console_direct+
+colcon test-result --verbose
+git diff --check
 ```
 
-Nhấn `Ctrl+C` để rosbag ghi metadata và đóng file sạch. Có thể truyền đường
-dẫn output riêng làm đối số đầu tiên.
+The suite includes behavioral tests for valid TF transforms, unknown frames,
+stale/zero/future timestamps, invalid and non-finite detections, obstacle
+expiry, synchronization thresholds, and a live final-launch smoke/interface
+test. Optional dataset-dependent tests are skipped when KITTI is absent.
+
+Latest clean verification: `296 tests, 0 errors, 0 failures, 34 skipped`.
+
+## 11. Benchmark
+
+Canonical Gate 12/13 metrics:
 
 ```bash
-./scripts/record_personal_bag.sh bags/my_demo
-ros2 bag info bags/my_demo
-ros2 bag play bags/my_demo
+python3 benchmarks/run_canonical_demo.py --runs 3
 ```
 
-Bag chứa ảnh gốc, CameraInfo, point cloud, overlay và `/tf_static`.
+The JSON/CSV output includes camera, point-cloud, detection, and fusion rates;
+mean sync delay; goal duration; reaction latency; obstacle expiry; pipeline
+latency; and minimum clearance. The current three-run mean is documented in
+`benchmarks/canonical_demo_results.json`.
 
-## Kiểm tra khi chạy
-
-`sensor_sync_node` đồng bộ Image, CameraInfo và PointCloud2 trong tolerance cấu
-hình, publish ba topic `/fusion/synced/*` cùng `SyncStatus`. `object_fusion_node`
-lookup TF tại timestamp của detection, từ chối cloud sai frame và vẫn publish
-detection với `valid=false` khi không ước lượng được depth. Một số lệnh kiểm tra:
+For the broader scenario matrix:
 
 ```bash
-ros2 topic list -t
-ros2 topic hz /kitti/velodyne/points
-ros2 topic echo /fusion/sync_status --once
-ros2 topic echo /fusion/detections_3d --once
-ros2 topic echo /tf_static --once
-ros2 run tf2_ros tf2_echo velodyne camera_optical_frame
+python3 benchmarks/run_benchmark.py
+python3 benchmarks/plot_results.py
 ```
 
-Overlay và ảnh debug YOLO chỉ được tính khi có subscriber để tránh tốn CPU.
+## 12. Fault injection
+
+Run only the five implemented deterministic faults:
+
+```bash
+python3 benchmarks/run_core_faults.py --seed 12014
+```
+
+It measures timestamp delay, calibration perturbation, point-cloud noise,
+density reduction, and lost detection/obstacle expiry. Results and the seed are
+stored in `experiments/gate14_core_faults.json`; behavior is validated through
+outputs and metrics rather than source-text assertions.
+
+## 13. Known limitations
+
+- The simulation detector is color-based and exists only for deterministic
+  Gazebo testing; real images require the ONNX detector and a compatible model.
+- KITTI tests require the separately downloaded dataset; they skip otherwise.
+- Calibration is static during a run. The monitor reports degradation but does
+  not perform online extrinsic recalibration.
+- The bridge represents each detection as a class-sized point-cloud footprint,
+  not a full 3D mesh or tracked object trajectory.
+- Default stale and obstacle timeouts are 0.5 s and 0.75 s; deployments should
+  tune them for sensor rate and braking distance.
+- RViz may emit OpenGL/GLSL warnings or need forced shutdown on some remote or
+  virtualized GPU sessions. Use `use_rviz:=false` for headless operation.

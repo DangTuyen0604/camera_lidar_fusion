@@ -1,5 +1,7 @@
 """Black-box tests for timestamps, TF failure, timeout clearing and recovery."""
 
+import math
+import struct
 import time
 import unittest
 
@@ -60,6 +62,31 @@ class TestBridgeNode(unittest.TestCase):
                 return True
         return False
 
+    def publish_for(self, message, duration=0.25):
+        deadline = time.monotonic() + duration
+        while time.monotonic() < deadline:
+            self.publisher.publish(message)
+            rclpy.spin_once(self.node, timeout_sec=0.05)
+
+    @staticmethod
+    def diagnostic_values(message):
+        for status in message.status:
+            if status.name == 'navigation_bridge/detection_obstacle_bridge':
+                return {item.key: int(item.value) for item in status.values}
+        return {}
+
+    @staticmethod
+    def xyz_points(cloud):
+        endian = '>' if cloud.is_bigendian else '<'
+        offsets = {field.name: field.offset for field in cloud.fields}
+        points = []
+        for index in range(cloud.width * cloud.height):
+            base = index * cloud.point_step
+            points.append(tuple(struct.unpack_from(
+                f'{endian}f', cloud.data, base + offsets[name])[0]
+                for name in ('x', 'y', 'z')))
+        return points
+
     def message(self, frame='camera_optical_frame', offset=0.0, valid=True):
         message = FusedDetectionArray()
         message.header.frame_id = frame
@@ -74,15 +101,38 @@ class TestBridgeNode(unittest.TestCase):
         return message
 
     def test_01_rejections_do_not_kill_node(self):
-        empty_frame = self.message(frame='')
+        self.assertTrue(self.spin_until(
+            lambda: self.publisher.get_subscription_count() == 1))
+        before = len(self.clouds)
+        self.publish_for(self.message(valid=False), 0.15)
+        non_finite = self.message()
+        non_finite.detections[0].position.y = math.inf
+        self.publish_for(non_finite, 0.15)
+        nan_detection = self.message()
+        nan_detection.detections[0].position.z = math.nan
+        self.publish_for(nan_detection, 0.15)
+        absurd = self.message()
+        absurd.detections[0].position.x = 1000.0
+        self.publish_for(absurd, 0.15)
+        self.publish_for(self.message(frame=''), 0.15)
+
         zero_stamp = self.message()
         zero_stamp.header.stamp.sec = 0
         zero_stamp.header.stamp.nanosec = 0
-        for message in (empty_frame, zero_stamp, self.message(offset=-1.0),
-                        self.message(offset=1.0), self.message(frame='missing_frame')):
-            self.publisher.publish(message)
-            rclpy.spin_once(self.node, timeout_sec=0.10)
-        self.assertTrue(self.spin_until(lambda: bool(self.diagnostics), 2.0))
+        self.publish_for(zero_stamp, 0.15)
+        self.publish_for(self.message(offset=-5.0), 0.15)
+        self.publish_for(self.message(offset=5.0), 0.15)
+        self.publish_for(self.message(frame='missing_frame'), 0.15)
+
+        self.assertEqual(len(self.clouds), before)
+        diagnostics_after_inputs = len(self.diagnostics)
+        self.assertTrue(self.spin_until(
+            lambda: len(self.diagnostics) > diagnostics_after_inputs, 2.0))
+        values = self.diagnostic_values(self.diagnostics[-1])
+        for key in ('rejected_invalid', 'rejected_range', 'rejected_non_finite',
+                    'rejected_empty_frame', 'rejected_zero_stamp', 'rejected_stale',
+                    'rejected_future', 'rejected_missing_tf'):
+            self.assertGreater(values[key], 0, key)
 
     def test_02_valid_transform_and_timeout_clearing(self):
         before = len(self.clouds)
@@ -93,9 +143,26 @@ class TestBridgeNode(unittest.TestCase):
         cloud = self.clouds[-1]
         self.assertEqual(cloud.header.frame_id, 'base_link')
         self.assertGreater(cloud.width, 1)  # expanded pallet footprint
+        points = self.xyz_points(cloud)
+        # Static TF adds +1 m in x. A pallet centered at camera x=2 m spans
+        # x=[2.4, 3.6] and y=[-0.4, 0.4] in base_link.
+        self.assertAlmostEqual(min(point[0] for point in points), 2.4, places=4)
+        self.assertAlmostEqual(max(point[0] for point in points), 3.6, places=4)
+        self.assertAlmostEqual(min(point[1] for point in points), -0.4, places=4)
+        self.assertAlmostEqual(max(point[1] for point in points), 0.4, places=4)
+
+        # Repeated invalid observations must not refresh the valid obstacle's
+        # lifetime. The bridge must still emit clearing rays and an empty cloud.
+        deadline = time.monotonic() + 0.6
+        while time.monotonic() < deadline:
+            self.publisher.publish(self.message(valid=False))
+            rclpy.spin_once(self.node, timeout_sec=0.05)
+        expired_clouds = len(self.clouds)
         self.assertTrue(self.spin_until(
-            lambda: bool(self.clearings) and any(item.width == 0 for item in self.clouds),
+            lambda: bool(self.clearings) and
+            sum(item.width == 0 for item in self.clouds[expired_clouds:]) >= 2,
             2.0))
+        self.assertEqual(len(self.clearings), 1)
 
 
 @launch_testing.post_shutdown_test()
