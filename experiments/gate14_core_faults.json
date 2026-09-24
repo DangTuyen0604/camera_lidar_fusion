@@ -12,9 +12,9 @@
   },
   "lost_detection": {
     "canonical_runs": 3,
-    "minimum_empty_heartbeats": 105,
+    "minimum_empty_heartbeats": 93,
     "obstacle_expired_in_every_run": true,
-    "obstacle_expiry_mean_s": 0.845333
+    "obstacle_expiry_mean_s": 0.812
   },
   "pointcloud_noise": {
     "measured_xyz_rms_change_m": 0.097816,

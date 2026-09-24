@@ -27,6 +27,10 @@ if(BUILD_TESTING)
     test_gate12_14_artifacts
     test/test_gate12_14_artifacts.py
   )
+  ament_add_pytest_test(
+    test_gate11_pipeline
+    test/test_gate11_pipeline.py
+  )
   ament_add_pytest_test(test_fault_injection test/test_fault_injection.py)
   ament_add_pytest_test(
     test_license_provenance

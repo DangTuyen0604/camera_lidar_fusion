@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from action_msgs.msg import GoalStatus
 from ament_index_python.packages import get_package_share_directory
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CollisionMonitorState
@@ -9,6 +10,7 @@ from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.duration import Duration
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
@@ -17,6 +19,12 @@ import yaml
 from .cargo_manager import CargoManager
 from .docking_controller import DockingController, pose_stamped
 from .mission_state import MissionState
+
+
+def navigation_succeeded(response):
+    """Accept only a completed Nav2 goal, never a canceled/aborted result."""
+    return (response.status == GoalStatus.STATUS_SUCCEEDED and
+            response.result.error_code == 0)
 
 
 class MissionManager(Node):
@@ -95,7 +103,7 @@ class MissionManager(Node):
                 callback(False)
                 return
             handle.get_result_async().add_done_callback(
-                lambda result: callback(result.result().result.error_code == 0))
+                lambda result: callback(navigation_succeeded(result.result())))
         future.add_done_callback(accepted)
         return True
 
@@ -170,12 +178,12 @@ def main(args=None):
     node = MissionManager()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         try:
             node.destroy_node()
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, ExternalShutdownException):
             pass
         if rclpy.ok():
             rclpy.shutdown()

@@ -16,11 +16,18 @@ def generate_launch_description():
     gui = LaunchConfiguration('gui')
     use_sim_time = LaunchConfiguration('use_sim_time')
     use_scenario = LaunchConfiguration('use_scenario')
+    publish_fused_detections = LaunchConfiguration(
+        'publish_fused_detections')
     from launch.conditions import IfCondition
     return LaunchDescription([
         DeclareLaunchArgument('gui', default_value='false'),
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('use_scenario', default_value='true'),
+        DeclareLaunchArgument(
+            'publish_fused_detections', default_value='true',
+            description=(
+                'Publish deterministic scenario truth on the live fusion '
+                'topic. Disable when the real perception pipeline is active.')),
         SetEnvironmentVariable(
             'GZ_SIM_RESOURCE_PATH',
             f"{share / 'models'}:{share / 'worlds'}"),
@@ -36,5 +43,8 @@ def generate_launch_description():
             }.items()),
         Node(package='warehouse_simulation', executable='scenario_runner',
              condition=IfCondition(use_scenario), output='screen',
-             parameters=[{'use_sim_time': use_sim_time}]),
+             parameters=[{
+                 'use_sim_time': use_sim_time,
+                 'publish_fused_detections': publish_fused_detections,
+             }]),
     ])

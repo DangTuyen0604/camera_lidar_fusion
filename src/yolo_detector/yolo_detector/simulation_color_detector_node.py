@@ -62,7 +62,10 @@ def main(args=None):
         if rclpy.ok():
             raise
     finally:
-        node.destroy_node()
+        try:
+            node.destroy_node()
+        except (KeyboardInterrupt, ExternalShutdownException):
+            pass
         if rclpy.ok():
             rclpy.shutdown()
 

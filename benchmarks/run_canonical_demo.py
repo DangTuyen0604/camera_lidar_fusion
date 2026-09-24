@@ -118,7 +118,9 @@ def main():
         encoding='utf-8')
     with args.csv.open('w', newline='', encoding='utf-8') as stream:
         fields = ['run', 'result', 'goal_status', 'collision_count', *METRICS]
-        writer = csv.DictWriter(stream, fieldnames=fields, extrasaction='ignore')
+        writer = csv.DictWriter(
+            stream, fieldnames=fields, extrasaction='ignore',
+            lineterminator='\n')
         writer.writeheader()
         writer.writerows(results)
     print(json.dumps(summary, indent=2, sort_keys=True))

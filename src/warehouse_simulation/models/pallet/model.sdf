@@ -1,1 +1,19 @@
-<?xml version="1.0"?><sdf version="1.9"><model name="pallet"><link name="link"><inertial><mass>12</mass></inertial><collision name="c"><geometry><box><size>1.2 0.8 0.18</size></box></geometry></collision><visual name="v"><geometry><box><size>1.2 0.8 0.18</size></box></geometry><material><diffuse>0.55 0.28 0.08 1</diffuse></material></visual></link></model></sdf>
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="pallet">
+    <link name="link">
+      <inertial><mass>12</mass></inertial>
+      <collision name="collision">
+        <geometry><box><size>1.2 0.8 0.18</size></box></geometry>
+      </collision>
+      <visual name="top_1"><pose>0 -0.31 0.04 0 0 0</pose><geometry><box><size>1.2 0.14 0.10</size></box></geometry><material><diffuse>0.48 0.24 0.07 1</diffuse><pbr><metal><roughness>0.92</roughness></metal></pbr></material></visual>
+      <visual name="top_2"><pose>0 -0.155 0.04 0 0 0</pose><geometry><box><size>1.2 0.13 0.10</size></box></geometry><material><diffuse>0.58 0.31 0.10 1</diffuse><pbr><metal><roughness>0.92</roughness></metal></pbr></material></visual>
+      <visual name="top_3"><pose>0 0 0.04 0 0 0</pose><geometry><box><size>1.2 0.13 0.10</size></box></geometry><material><diffuse>0.50 0.26 0.075 1</diffuse><pbr><metal><roughness>0.92</roughness></metal></pbr></material></visual>
+      <visual name="top_4"><pose>0 0.155 0.04 0 0 0</pose><geometry><box><size>1.2 0.13 0.10</size></box></geometry><material><diffuse>0.58 0.31 0.10 1</diffuse><pbr><metal><roughness>0.92</roughness></metal></pbr></material></visual>
+      <visual name="top_5"><pose>0 0.31 0.04 0 0 0</pose><geometry><box><size>1.2 0.14 0.10</size></box></geometry><material><diffuse>0.48 0.24 0.07 1</diffuse><pbr><metal><roughness>0.92</roughness></metal></pbr></material></visual>
+      <visual name="block_left"><pose>-0.48 0 -0.045 0 0 0</pose><geometry><box><size>0.18 0.70 0.07</size></box></geometry><material><diffuse>0.40 0.19 0.055 1</diffuse></material></visual>
+      <visual name="block_middle"><pose>0 0 -0.045 0 0 0</pose><geometry><box><size>0.18 0.70 0.07</size></box></geometry><material><diffuse>0.40 0.19 0.055 1</diffuse></material></visual>
+      <visual name="block_right"><pose>0.48 0 -0.045 0 0 0</pose><geometry><box><size>0.18 0.70 0.07</size></box></geometry><material><diffuse>0.40 0.19 0.055 1</diffuse></material></visual>
+    </link>
+  </model>
+</sdf>

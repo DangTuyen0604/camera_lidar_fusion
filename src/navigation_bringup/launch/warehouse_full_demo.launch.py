@@ -23,16 +23,21 @@ def generate_launch_description():
     gui = LaunchConfiguration('gui')
     map_file = LaunchConfiguration('map')
     mission_autostart = LaunchConfiguration('mission_autostart')
+    publish_fused_detections = LaunchConfiguration(
+        'publish_fused_detections')
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('gui', default_value='false'),
         DeclareLaunchArgument('mission_autostart', default_value='true'),
+        DeclareLaunchArgument(
+            'publish_fused_detections', default_value='true'),
         DeclareLaunchArgument(
             'map', default_value=str(nav_share / 'maps' / 'warehouse_map.yaml')),
         include('warehouse_simulation', 'warehouse.launch.py', {
             'gui': gui,
             'use_sim_time': use_sim_time,
             'use_scenario': 'true',
+            'publish_fused_detections': publish_fused_detections,
         }),
         # Match the OpenAMRobot reference stack: remove returns from the rear
         # chassis before presenting the live LiDAR scan to RViz.

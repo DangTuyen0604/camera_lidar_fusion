@@ -1,4 +1,4 @@
 run,result,goal_status,collision_count,camera_rate_hz,pointcloud_rate_hz,detection_rate_hz,fusion_rate_hz,sync_delay_mean_ms,goal_duration_s,obstacle_reaction_latency_ms,pipeline_end_to_end_mean_ms,obstacle_expiry_s,minimum_robot_obstacle_clearance_m
-1,PASS,SUCCEEDED,0,10.457,8.98,4.301,4.299,20.907,11.85,115.017,69.078,0.826,1.2
-2,PASS,SUCCEEDED,0,10.233,8.987,4.177,4.176,20.546,11.751,2.897,68.703,0.853,1.2
-3,PASS,SUCCEEDED,0,10.042,8.945,3.872,3.872,20.337,11.952,122.544,71.298,0.857,1.2
+1,PASS,SUCCEEDED,0,8.812,7.515,4.016,4.016,20.86,48.452,122.795,81.727,0.946,1.2
+2,PASS,SUCCEEDED,0,8.847,7.535,4.211,4.211,21.013,47.251,137.407,88.794,0.815,1.2
+3,PASS,SUCCEEDED,0,9.407,8.229,5.126,5.125,21.091,39.322,126.219,89.792,0.835,1.2

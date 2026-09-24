@@ -7,7 +7,10 @@
   <rect x="115" y="84.5" width="30" height="7" fill="black"/>
   <rect x="115" y="48.5" width="30" height="7" fill="black"/>
   <rect x="55" y="21" width="30" height="8" fill="black"/>
-  <rect x="88" y="115" width="4" height="10" fill="black"/>
-  <rect x="18" y="25" width="4" height="10" fill="black"/>
-  <rect x="158" y="25" width="4" height="10" fill="black"/>
+  <!-- Dock collision boxes, projected from docking_station/model.sdf. -->
+  <rect x="33.5" y="30" width="3" height="10" fill="black"/>
+  <rect x="73.5" y="30" width="3" height="10" fill="black"/>
+  <rect x="103.5" y="30" width="3" height="10" fill="black"/>
+  <rect x="143.5" y="30" width="3" height="10" fill="black"/>
+  <rect x="85" y="103.5" width="10" height="3" fill="black"/>
 </svg>

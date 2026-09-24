@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-One-command bringup for the complete warehouse simulation stack.
+One-command bringup for the integrated warehouse perception stack.
 
 Starts one coherent simulation-time pipeline:
 
     1. Gazebo warehouse, robot, sensor bridges and scenario runner
-    2. localization and Nav2
-    3. RViz
-    4. warehouse mission manager with mission autostart
+    2. live camera-LiDAR synchronization, detection and XYZ fusion
+    3. obstacle bridge, localization, Nav2 and collision safety
+    4. RViz and the M01-M04 warehouse mission
 
 Usage:
     ros2 launch fusion_bringup bringup_sim.launch.py
@@ -76,7 +76,59 @@ def generate_launch_description():
                 'gui': gazebo_gui,
                 'use_sim_time': use_sim_time,
                 'mission_autostart': mission_autostart,
+                # ScenarioRunner still owns physical objects and benchmark
+                # truth, but only live perception may drive the bridge.
+                'publish_fused_detections': 'false',
             }.items(),
+        ),
+        Node(
+            package='perception_core',
+            executable='sensor_sync_node',
+            name='sensor_sync_node',
+            output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'image_topic': '/camera/image_raw',
+                'camera_info_topic': '/camera/camera_info',
+                'pointcloud_topic': '/lidar/points',
+                'camera_frame_id': 'camera_optical_frame',
+                'lidar_frame_id': 'lidar_link',
+                'sync_tolerance_ms': 120.0,
+            }],
+        ),
+        Node(
+            package='yolo_detector',
+            executable='simulation_color_detector',
+            name='simulation_color_detector_node',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}],
+        ),
+        Node(
+            package='perception_core',
+            executable='object_fusion_node',
+            name='object_fusion_node',
+            output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'camera_frame_id': 'camera_optical_frame',
+                'lidar_frame_id': 'lidar_link',
+                'sync_tolerance_ms': 120.0,
+                'tf_timeout_ms': 100.0,
+                'min_lidar_points': 1,
+                'bbox_shrink_ratio': 0.90,
+                'min_depth': 0.40,
+                'max_depth': 10.0,
+            }],
+        ),
+        Node(
+            package='perception_core',
+            executable='metrics_node',
+            name='metrics_node',
+            output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'publish_period_sec': 0.5,
+            }],
         ),
         TimerAction(period=rviz_delay, actions=[
             Node(

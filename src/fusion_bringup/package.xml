@@ -2,7 +2,7 @@
 <package format="3">
   <name>fusion_bringup</name>
   <version>0.1.0</version>
-  <description>Launch and RViz configuration for the KITTI fusion demo.</description>
+  <description>Integrated camera-LiDAR, navigation and warehouse bringup.</description>
 
   <maintainer email="nguyendangtuyen062004@gmail.com">Nguyen Dang Tuyen</maintainer>
   <license>Apache-2.0</license>

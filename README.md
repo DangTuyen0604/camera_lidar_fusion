@@ -11,6 +11,9 @@ publishes expiring obstacles to Nav2 costmaps and Collision Monitor. The
 canonical demo runs the complete chain in Gazebo; KITTI playback is available
 for offline calibration, projection, and perception experiments.
 
+The consolidated verification summary is in
+[`FINAL_PROJECT_REPORT.md`](FINAL_PROJECT_REPORT.md).
+
 The final path is real message flow, not direct costmap injection:
 
 `camera + LiDAR -> detection -> fusion -> obstacle bridge -> Nav2 -> AMR`
@@ -104,12 +107,32 @@ ros2 launch fusion_bringup final_demo.launch.py
 ```
 
 This starts Gazebo, the robot, bridges, localization, Nav2, camera, LiDAR,
-detector, fusion, obstacle bridge, metrics, and RViz. For CI/headless systems:
+detector, fusion, obstacle bridge, metrics, and RViz. To open both Gazebo and
+RViz explicitly:
+
+```bash
+ros2 launch fusion_bringup final_demo.launch.py \
+  use_rviz:=true gazebo_gui:=true
+```
+
+For CI/headless systems:
 
 ```bash
 ros2 launch fusion_bringup final_demo.launch.py \
   use_rviz:=false gazebo_gui:=false
 ```
+
+Run the integrated warehouse mission (M01-M04) with live camera-LiDAR fusion,
+Gazebo and RViz:
+
+```bash
+ros2 launch fusion_bringup bringup_sim.launch.py \
+  gazebo_gui:=true use_rviz:=true mission_autostart:=true
+```
+
+In this launch, the scenario runner creates and moves physical warehouse
+actors but publishes only benchmark ground truth. `/fusion/detections_3d` is
+owned by the live perception pipeline.
 
 Optional KITTI projection demo:
 
@@ -210,7 +233,7 @@ stale/zero/future timestamps, invalid and non-finite detections, obstacle
 expiry, synchronization thresholds, and a live final-launch smoke/interface
 test. Optional dataset-dependent tests are skipped when KITTI is absent.
 
-Latest clean verification: `296 tests, 0 errors, 0 failures, 34 skipped`.
+Latest clean verification: `306 tests, 0 errors, 0 failures, 34 skipped`.
 
 ## 11. Benchmark
 
@@ -247,6 +270,11 @@ outputs and metrics rather than source-text assertions.
 
 ## 13. Known limitations
 
+- The production-matched LiDAR mount is partly occluded by the rear chassis.
+  The integrated demo therefore uses `/scan_filtered`, retaining the forward
+  280 degrees and masking the rear 80-degree self-reflection sector. True
+  360-degree coverage requires a higher physical mount and new TF/extrinsic
+  calibration; disabling the filter at the current height is unsafe.
 - The simulation detector is color-based and exists only for deterministic
   Gazebo testing; real images require the ONNX detector and a compatible model.
 - KITTI tests require the separately downloaded dataset; they skip otherwise.

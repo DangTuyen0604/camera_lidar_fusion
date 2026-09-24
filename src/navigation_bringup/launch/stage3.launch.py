@@ -43,7 +43,10 @@ def generate_launch_description():
         DeclareLaunchArgument('use_rviz', default_value='true'),
         DeclareLaunchArgument(
             'map',
-            default_value=str(share / 'maps' / 'warehouse_slam_map.yaml'),
+            # Use the geometry-derived map for the deterministic Gazebo demo.
+            # The captured SLAM map intentionally retains scan shadows and
+            # produces the large triangular unknown-space artifacts in RViz.
+            default_value=str(share / 'maps' / 'warehouse_map.yaml'),
         ),
         DeclareLaunchArgument(
             'params_file',

@@ -190,7 +190,14 @@ private:
 
   void onTimer()
   {
-    if (!has_observation_ || (now() - last_observation_).seconds() <= obstacle_timeout_) {
+    // Collision Monitor treats a source that has never published as failed
+    // and stops the robot.  An empty cloud is the correct observation while
+    // the perception pipeline is healthy but has not detected an obstacle.
+    if (!has_observation_) {
+      publisher_->publish(makeCloud({}, now()));
+      return;
+    }
+    if ((now() - last_observation_).seconds() <= obstacle_timeout_) {
       return;
     }
     if (!clearing_sent_) {

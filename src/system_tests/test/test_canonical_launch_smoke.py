@@ -11,6 +11,8 @@ import launch
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 import launch_testing
+from lifecycle_msgs.msg import State
+from lifecycle_msgs.srv import GetState
 from nav2_msgs.action import NavigateToPose
 from nav_msgs.msg import Odometry
 import pytest
@@ -83,6 +85,23 @@ class TestCanonicalLaunchSmoke(unittest.TestCase):
                 return True
         return False
 
+    def wait_for_active(self, node_name, timeout=15.0):
+        """Wait until a Nav2 lifecycle node has completed activation."""
+        client = self.node.create_client(GetState, f'/{node_name}/get_state')
+        try:
+            if not client.wait_for_service(timeout_sec=timeout):
+                return False
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                future = client.call_async(GetState.Request())
+                if (self.wait(future.done, 1.0) and
+                        future.result().current_state.id ==
+                        State.PRIMARY_STATE_ACTIVE):
+                    return True
+            return False
+        finally:
+            self.node.destroy_client(client)
+
     def test_final_launch_topics_nodes_and_interfaces(self):
         expected_topics = {
             '/clock', '/odom', '/scan_filtered', '/camera/image_raw',
@@ -94,6 +113,12 @@ class TestCanonicalLaunchSmoke(unittest.TestCase):
             self.wait(lambda: expected_topics <= self.received, 90.0),
             f'missing live topics: {sorted(expected_topics - self.received)}')
         self.assertTrue(self.navigation.wait_for_server(timeout_sec=45.0))
+        for node_name in (
+                'controller_server', 'planner_server', 'behavior_server',
+                'bt_navigator', 'velocity_smoother', 'collision_monitor'):
+            self.assertTrue(
+                self.wait_for_active(node_name),
+                f'{node_name} did not reach ACTIVE state')
 
         topic_types = dict(self.node.get_topic_names_and_types())
         expected_interfaces = {
@@ -105,6 +130,15 @@ class TestCanonicalLaunchSmoke(unittest.TestCase):
             '/cmd_vel_smoothed': 'geometry_msgs/msg/Twist',
             '/cmd_vel': 'geometry_msgs/msg/Twist',
         }
+        # The BT action server is created during configuration, slightly
+        # before the smoother and monitor finish activation and advertise
+        # their velocity topics. Wait for the whole graph contract instead
+        # of sampling that lifecycle transition race.
+        self.assertTrue(self.wait(
+            lambda: set(expected_interfaces) <= set(dict(
+                self.node.get_topic_names_and_types())),
+            15.0))
+        topic_types = dict(self.node.get_topic_names_and_types())
         for topic, interface in expected_interfaces.items():
             self.assertIn(topic, topic_types)
             self.assertIn(interface, topic_types[topic])

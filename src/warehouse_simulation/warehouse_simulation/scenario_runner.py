@@ -44,11 +44,15 @@ class ScenarioRunner(Node):
         self.entities = {}
         self.collision_count = 0
         self.in_collision = False
+        self.publish_fused_detections = bool(self.declare_parameter(
+            'publish_fused_detections', True).value)
         self.spawn_client = self.create_client(SpawnEntity, '/gzserver/spawn_entity')
         self.pose_client = self.create_client(SetEntityState, '/gzserver/set_entity_state')
         self.delete_client = self.create_client(DeleteEntity, '/gzserver/delete_entity')
-        self.detection_publisher = self.create_publisher(
-            FusedDetectionArray, '/fusion/detections_3d', 10)
+        self.detection_publisher = None
+        if self.publish_fused_detections:
+            self.detection_publisher = self.create_publisher(
+                FusedDetectionArray, '/fusion/detections_3d', 10)
         self.truth_publisher = self.create_publisher(
             FusedDetectionArray, '/benchmark/ground_truth/detections_3d', 10)
         self.event_publisher = self.create_publisher(String, '/benchmark/events', 10)
@@ -127,7 +131,8 @@ class ScenarioRunner(Node):
             detection.lidar_point_count = 32
             detection.valid = True
             message.detections.append(detection)
-        self.detection_publisher.publish(message)
+        if self.detection_publisher is not None:
+            self.detection_publisher.publish(message)
         self.truth_publisher.publish(message)
         collision = UInt64()
         collision.data = self.collision_count
@@ -138,21 +143,25 @@ class ScenarioRunner(Node):
             future = self.motion_futures.get(name)
             if future is not None and not future.done():
                 continue
-            x, y, speed, targets = path
+            x, y, speed, targets, loop_targets = path
             tx, ty = targets[0]
             distance = math.hypot(tx - x, ty - y)
             if distance < 0.08:
                 targets.pop(0)
                 if not targets:
-                    del self.paths[name]
-                    continue
+                    if loop_targets:
+                        targets.extend([list(point) for point in loop_targets])
+                    else:
+                        del self.paths[name]
+                        continue
                 tx, ty = targets[0]
                 distance = math.hypot(tx - x, ty - y)
+            yaw = math.atan2(ty - y, tx - x)
             step = min(speed * 0.1, distance)
             x += step * (tx - x) / max(distance, 1e-6)
             y += step * (ty - y) / max(distance, 1e-6)
-            self.paths[name] = [x, y, speed, targets]
-            self._move(name, [x, y, 0.0, 0.0], advance=False)
+            self.paths[name] = [x, y, speed, targets, loop_targets]
+            self._move(name, [x, y, 0.0, yaw], advance=False)
         if self.robot_xy:
             for name in self.attached:
                 self._move(
@@ -219,13 +228,19 @@ class ScenarioRunner(Node):
             request = DeleteEntity.Request()
             request.entity = action['name']
             if self._start(self.delete_client, request, f"delete {action['name']}"):
+                self.paths.pop(action['name'], None)
+                self.motion_futures.pop(action['name'], None)
                 self.entities.pop(action['name'], None)
         elif kind == 'move':
             self._move(action['name'], action['pose'])
         elif kind == 'follow_path':
-            first = action['path'][0]
+            points = [list(point) for point in action['path']]
+            first = points[0]
+            targets = points[1:]
+            loop_targets = ([list(point) for point in targets]
+                            if action.get('loop', False) else [])
             self.paths[action['name']] = [
-                first[0], first[1], action['speed'], list(action['path'][1:])]
+                first[0], first[1], action['speed'], targets, loop_targets]
             self.index += 1
         elif kind == 'attach_cargo':
             self.attached.add(action['name'])

@@ -2,11 +2,20 @@ seed: 42
 action_timeout_sec: 10.0
 scenarios:
   warehouse_demo:
+    # Both workers are persistent dynamic obstacles.  Their closed patrols
+    # continue for the whole simulation instead of disappearing at the end of
+    # the cargo scenario.
+    #
+    # Worker 1 crosses the S1 <-> S2 transfer route at x=-4.  The short
+    # rectangular patrol makes it cross the robot lane in both directions.
+    - {action: spawn, name: crossing_worker, model: worker, pose: [-4.2, 2.5, 0.0, 0.0]}
+    - {action: follow_path, name: crossing_worker, speed: 0.75, loop: true, path: [[-4.2, 2.5], [-4.2, 4.6], [-3.8, 4.6], [-3.8, 2.5], [-4.2, 2.5]]}
+    # Worker 2 crosses the S3 <-> S4 transfer route at x=4.  Starting at the
+    # opposite end keeps both people visible and out of phase.
+    - {action: spawn, name: station_worker, model: worker, pose: [4.2, 4.6, 0.0, 0.0]}
+    - {action: follow_path, name: station_worker, speed: 0.75, loop: true, path: [[4.2, 4.6], [4.2, 2.5], [3.8, 2.5], [3.8, 4.6], [4.2, 4.6]]}
     - {action: wait_for_robot_region, region: aisle_a}
     - {action: spawn, name: blocking_pallet, model: pallet, pose: [-4.0, 0.0, 0.10, 0.0]}
-    - {action: wait_for_robot_region, region: crossing}
-    - {action: spawn, name: crossing_worker, model: worker, pose: [0.0, -2.0, 0.0, 0.0]}
-    - {action: follow_path, name: crossing_worker, speed: 0.6, path: [[0.0, -2.0], [0.0, 2.0]]}
     - {action: wait_for_robot_region, region: assembly_exit}
     - {action: spawn, name: fallen_box, model: cargo_box, pose: [1.5, 2.0, 0.25, 0.2]}
     - {action: wait_for_mission_state, state: WAIT_FOR_LOADING}
@@ -16,5 +25,4 @@ scenarios:
     - {action: detach_cargo, name: mission_cargo}
     - {action: delete, name: mission_cargo}
     - {action: delete, name: blocking_pallet}
-    - {action: delete, name: crossing_worker}
     - {action: delete, name: fallen_box}

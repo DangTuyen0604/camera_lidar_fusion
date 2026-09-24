@@ -1,8 +1,10 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+from action_msgs.msg import GoalStatus
 from warehouse_mission_manager.cargo_manager import CargoManager
 from warehouse_mission_manager.docking_controller import DockingController
+from warehouse_mission_manager.mission_manager import navigation_succeeded
 from warehouse_mission_manager.mission_state import MissionState
 import yaml
 
@@ -31,3 +33,13 @@ def test_docking_acceptance_limits():
                            twist=SimpleNamespace(twist=twist))
     assert DockingController.validate(odom, {'x': 1.0, 'y': 2.0, 'yaw': 0.0}, False)
     assert not DockingController.validate(odom, {'x': 1.0, 'y': 2.0, 'yaw': 0.0}, True)
+
+
+def test_navigation_result_rejects_canceled_and_aborted_goals():
+    result = SimpleNamespace(error_code=0)
+    assert navigation_succeeded(SimpleNamespace(
+        status=GoalStatus.STATUS_SUCCEEDED, result=result))
+    assert not navigation_succeeded(SimpleNamespace(
+        status=GoalStatus.STATUS_CANCELED, result=result))
+    assert not navigation_succeeded(SimpleNamespace(
+        status=GoalStatus.STATUS_ABORTED, result=result))

@@ -6,7 +6,30 @@
   <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
   <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"><render_engine>ogre2</render_engine></plugin>
   <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
-  <light type="directional" name="sun"><pose>0 0 10 0 0 0</pose><diffuse>0.9 0.9 0.9 1</diffuse><direction>-0.3 0.2 -1</direction></light>
+  <scene>
+    <ambient>0.32 0.34 0.38 1</ambient>
+    <background>0.12 0.15 0.20 1</background>
+    <shadows>true</shadows>
+  </scene>
+  <light type="directional" name="sun">
+    <pose>0 0 10 0 0 0</pose>
+    <diffuse>0.78 0.80 0.84 1</diffuse>
+    <specular>0.25 0.25 0.25 1</specular>
+    <direction>-0.3 0.2 -1</direction>
+    <cast_shadows>true</cast_shadows>
+  </light>
+  <light type="point" name="warehouse_light_west">
+    <pose>-5 0 5.0 0 0 0</pose><diffuse>0.78 0.84 1.0 1</diffuse>
+    <specular>0.15 0.15 0.15 1</specular><attenuation><range>12</range><constant>0.7</constant><linear>0.03</linear><quadratic>0.01</quadratic></attenuation>
+  </light>
+  <light type="point" name="warehouse_light_center">
+    <pose>0 0 5.0 0 0 0</pose><diffuse>0.78 0.84 1.0 1</diffuse>
+    <specular>0.15 0.15 0.15 1</specular><attenuation><range>12</range><constant>0.7</constant><linear>0.03</linear><quadratic>0.01</quadratic></attenuation>
+  </light>
+  <light type="point" name="warehouse_light_east">
+    <pose>5 0 5.0 0 0 0</pose><diffuse>0.78 0.84 1.0 1</diffuse>
+    <specular>0.15 0.15 0.15 1</specular><attenuation><range>12</range><constant>0.7</constant><linear>0.03</linear><quadratic>0.01</quadratic></attenuation>
+  </light>
   <!-- The visible slab matches the 18 x 14 m navigation map.  The plane is an
        infinite safety collision so a localization failure cannot make the
        robot fall forever after crossing the edge of the slab. -->
@@ -25,10 +48,52 @@
       <visual name="visual">
         <geometry><box><size>18 14 0.1</size></box></geometry>
         <material>
-          <ambient>0.55 0.55 0.55 1</ambient>
-          <diffuse>0.55 0.55 0.55 1</diffuse>
+          <ambient>0.30 0.32 0.35 1</ambient>
+          <diffuse>0.42 0.45 0.48 1</diffuse>
+          <pbr><metal><roughness>0.88</roughness></metal></pbr>
         </material>
       </visual>
+    </link>
+  </model>
+
+  <!-- Visual-only traffic markings and color-coded work cells.  They do not
+       alter the navigation map or LiDAR collision geometry. -->
+  <model name="warehouse_floor_markings">
+    <static>true</static>
+    <link name="link">
+      <visual name="centre_lane_left"><pose>-1.15 -1.65 0.058 0 0 0</pose><geometry><box><size>0.06 8.1 0.016</size></box></geometry><material><diffuse>0.92 0.94 0.96 1</diffuse></material></visual>
+      <visual name="centre_lane_right"><pose>1.15 -1.65 0.058 0 0 0</pose><geometry><box><size>0.06 8.1 0.016</size></box></geometry><material><diffuse>0.92 0.94 0.96 1</diffuse></material></visual>
+      <visual name="north_lane_lower"><pose>0 2.30 0.058 0 0 0</pose><geometry><box><size>15.5 0.06 0.016</size></box></geometry><material><diffuse>0.92 0.94 0.96 1</diffuse></material></visual>
+      <visual name="north_lane_upper"><pose>0 4.72 0.058 0 0 0</pose><geometry><box><size>15.5 0.06 0.016</size></box></geometry><material><diffuse>0.92 0.94 0.96 1</diffuse></material></visual>
+
+      <visual name="crosswalk_left_1"><pose>-4.0 2.55 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_left_2"><pose>-4.0 2.88 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_left_3"><pose>-4.0 3.21 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_left_4"><pose>-4.0 3.54 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_left_5"><pose>-4.0 3.87 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_right_1"><pose>4.0 2.55 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_right_2"><pose>4.0 2.88 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_right_3"><pose>4.0 3.21 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_right_4"><pose>4.0 3.54 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+      <visual name="crosswalk_right_5"><pose>4.0 3.87 0.061 0 0 0</pose><geometry><box><size>0.90 0.16 0.018</size></box></geometry><material><diffuse>0.88 0.90 0.92 1</diffuse></material></visual>
+
+      <visual name="home_pad"><pose>0 -4.0 0.063 0 0 0</pose><geometry><box><size>1.55 1.20 0.02</size></box></geometry><material><diffuse>0.08 0.25 0.58 1</diffuse></material></visual>
+      <visual name="storage_pad"><pose>-6.0 3.5 0.063 0 0 0</pose><geometry><box><size>1.55 1.20 0.02</size></box></geometry><material><diffuse>0.08 0.34 0.68 1</diffuse></material></visual>
+      <visual name="assembly_pad"><pose>-2.0 3.5 0.063 0 0 0</pose><geometry><box><size>1.55 1.20 0.02</size></box></geometry><material><diffuse>0.04 0.52 0.48 1</diffuse></material></visual>
+      <visual name="inspection_pad"><pose>2.0 3.5 0.063 0 0 0</pose><geometry><box><size>1.55 1.20 0.02</size></box></geometry><material><diffuse>0.36 0.18 0.68 1</diffuse></material></visual>
+      <visual name="packaging_pad"><pose>6.0 3.5 0.063 0 0 0</pose><geometry><box><size>1.55 1.20 0.02</size></box></geometry><material><diffuse>0.62 0.12 0.55 1</diffuse></material></visual>
+    </link>
+  </model>
+
+  <!-- Wall-mounted color panels identify the four mission stations while
+       remaining inside the already occupied north-wall footprint. -->
+  <model name="station_signs">
+    <static>true</static>
+    <link name="link">
+      <visual name="storage_sign"><pose>-6.0 6.57 1.55 0 0 0</pose><geometry><box><size>1.60 0.06 0.62</size></box></geometry><material><diffuse>0.08 0.34 0.68 1</diffuse><emissive>0.01 0.04 0.10 1</emissive></material></visual>
+      <visual name="assembly_sign"><pose>-2.0 6.57 1.55 0 0 0</pose><geometry><box><size>1.60 0.06 0.62</size></box></geometry><material><diffuse>0.04 0.52 0.48 1</diffuse><emissive>0.01 0.08 0.07 1</emissive></material></visual>
+      <visual name="inspection_sign"><pose>2.0 6.57 1.55 0 0 0</pose><geometry><box><size>1.60 0.06 0.62</size></box></geometry><material><diffuse>0.36 0.18 0.68 1</diffuse><emissive>0.05 0.02 0.10 1</emissive></material></visual>
+      <visual name="packaging_sign"><pose>6.0 6.57 1.55 0 0 0</pose><geometry><box><size>1.60 0.06 0.62</size></box></geometry><material><diffuse>0.62 0.12 0.55 1</diffuse><emissive>0.09 0.01 0.08 1</emissive></material></visual>
     </link>
   </model>
 

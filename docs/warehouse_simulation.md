@@ -25,3 +25,10 @@ use the top-level bringup:
 ```bash
 ros2 launch fusion_bringup bringup_sim.launch.py
 ```
+
+This top-level launch runs the live camera-LiDAR synchronization, color
+detection, XYZ fusion and obstacle bridge together with M01-M04. The scenario
+runner still creates and moves physical actors and publishes benchmark truth on
+`/benchmark/ground_truth/detections_3d`, but it is explicitly disabled from
+publishing to `/fusion/detections_3d`; navigation therefore consumes only the
+live perception result.

@@ -100,10 +100,14 @@ class TestBridgeNode(unittest.TestCase):
         message.detections = [detection]
         return message
 
+    def test_00_publishes_empty_heartbeat_before_first_detection(self):
+        self.assertTrue(self.spin_until(lambda: bool(self.clouds)))
+        cloud = self.clouds[-1]
+        self.assertEqual(cloud.header.frame_id, 'base_link')
+        self.assertEqual(cloud.width, 0)
+
     def test_01_rejections_do_not_kill_node(self):
-        self.assertTrue(self.spin_until(
-            lambda: self.publisher.get_subscription_count() == 1))
-        before = len(self.clouds)
+        nonempty_before = sum(cloud.width > 0 for cloud in self.clouds)
         self.publish_for(self.message(valid=False), 0.15)
         non_finite = self.message()
         non_finite.detections[0].position.y = math.inf
@@ -124,14 +128,26 @@ class TestBridgeNode(unittest.TestCase):
         self.publish_for(self.message(offset=5.0), 0.15)
         self.publish_for(self.message(frame='missing_frame'), 0.15)
 
-        self.assertEqual(len(self.clouds), before)
+        self.assertEqual(
+            sum(cloud.width > 0 for cloud in self.clouds), nonempty_before)
         diagnostics_after_inputs = len(self.diagnostics)
+        expected_keys = (
+            'rejected_invalid', 'rejected_range', 'rejected_non_finite',
+            'rejected_empty_frame', 'rejected_zero_stamp', 'rejected_stale',
+            'rejected_future', 'rejected_missing_tf')
         self.assertTrue(self.spin_until(
-            lambda: len(self.diagnostics) > diagnostics_after_inputs, 2.0))
-        values = self.diagnostic_values(self.diagnostics[-1])
-        for key in ('rejected_invalid', 'rejected_range', 'rejected_non_finite',
-                    'rejected_empty_frame', 'rejected_zero_stamp', 'rejected_stale',
-                    'rejected_future', 'rejected_missing_tf'):
+            lambda: any(
+                all(key in self.diagnostic_values(message)
+                    for key in expected_keys)
+                for message in self.diagnostics[diagnostics_after_inputs:]),
+            2.0))
+        values = next(
+            values for values in (
+                self.diagnostic_values(message)
+                for message in reversed(
+                    self.diagnostics[diagnostics_after_inputs:]))
+            if all(key in values for key in expected_keys))
+        for key in expected_keys:
             self.assertGreater(values[key], 0, key)
 
     def test_02_valid_transform_and_timeout_clearing(self):
@@ -139,8 +155,11 @@ class TestBridgeNode(unittest.TestCase):
         for _ in range(3):
             self.publisher.publish(self.message())
             rclpy.spin_once(self.node, timeout_sec=0.10)
-        self.assertTrue(self.spin_until(lambda: len(self.clouds) > before))
-        cloud = self.clouds[-1]
+        self.assertTrue(self.spin_until(
+            lambda: any(cloud.width > 0 for cloud in self.clouds[before:])))
+        cloud = next(
+            cloud for cloud in reversed(self.clouds[before:])
+            if cloud.width > 0)
         self.assertEqual(cloud.header.frame_id, 'base_link')
         self.assertGreater(cloud.width, 1)  # expanded pallet footprint
         points = self.xyz_points(cloud)
