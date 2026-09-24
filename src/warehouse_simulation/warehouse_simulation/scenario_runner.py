@@ -27,6 +27,9 @@ class ScenarioRunner(Node):
         scenario_name = self.declare_parameter('scenario', 'warehouse_demo').value
         scenario_document = yaml.safe_load(scenario_file.read_text())
         self.actions = scenario_document['scenarios'][scenario_name]
+        self.actor_names = self._validate_actors(self.actions)
+        self.spawned_actors = set()
+        self.scenario_failed = False
         self.scenario_seed = int(scenario_document['seed'])
         self.action_timeout_sec = float(scenario_document['action_timeout_sec'])
         self.regions = yaml.safe_load(stations_file.read_text()).get('regions', {})
@@ -63,6 +66,40 @@ class ScenarioRunner(Node):
         self.create_timer(0.10, self._tick)
         self.create_timer(0.10, self._publish_detections)
 
+    @staticmethod
+    def _validate_actors(actions):
+        """Validate every configured worker without imposing a fixed count."""
+        actors = [
+            action for action in actions
+            if action.get('action') == 'spawn'
+            and action.get('model') == 'worker'
+        ]
+        names = [action.get('name') for action in actors]
+        if any(not name for name in names):
+            raise ValueError('Every worker spawn must have a non-empty name')
+        if len(names) != len(set(names)):
+            raise ValueError(f'Worker entity names must be unique: {names}')
+
+        poses = []
+        for action in actors:
+            pose = action.get('pose')
+            if not isinstance(pose, list) or len(pose) != 4:
+                raise ValueError(
+                    f"Worker {action['name']} must have pose [x, y, z, yaw]")
+            poses.append(tuple(float(value) for value in pose[:3]))
+        if len(poses) != len(set(poses)):
+            raise ValueError(f'Workers must have different initial poses: {poses}')
+
+        paths = {
+            action.get('name') for action in actions
+            if action.get('action') == 'follow_path'
+        }
+        missing_paths = sorted(set(names) - paths)
+        if missing_paths:
+            raise ValueError(
+                f'Workers missing independent follow_path actions: {missing_paths}')
+        return frozenset(names)
+
     def _odom(self, msg):
         self.robot_xy = (
             msg.pose.pose.position.x + self.map_offset[0],
@@ -83,13 +120,23 @@ class ScenarioRunner(Node):
         pose.orientation.w = math.cos(float(yaw) / 2.0)
         return pose
 
-    def _start(self, client, request, description, advance=True):
+    def _start(self, client, request, description, advance=True, context=None):
         if not client.service_is_ready():
             return None
         future = client.call_async(request)
         if advance:
-            self.pending = (future, description, time.monotonic())
+            self.pending = (
+                future, description, time.monotonic(), context or {})
         return future
+
+    def _fail_command(self, description, reason, context):
+        self.scenario_failed = True
+        if context.get('operation') == 'spawn':
+            self.get_logger().error(
+                f"[SCENARIO] Spawn failed: {context['name']}\nReason: {reason}")
+        else:
+            self.get_logger().error(
+                f'[SCENARIO] Gazebo command failed: {description}\nReason: {reason}')
 
     def _move(self, name, pose, advance=True):
         future = self.motion_futures.get(name)
@@ -177,26 +224,62 @@ class ScenarioRunner(Node):
 
     def _tick(self):
         self._tick_paths_and_cargo()
+        if self.scenario_failed:
+            return
         if self.pending is not None:
-            future, description, started = self.pending
+            future, description, started, context = self.pending
             if not future.done():
                 if time.monotonic() - started > self.action_timeout_sec:
                     future.cancel()
                     self.pending = None
-                    self.get_logger().error(
-                        f'Gazebo command timed out after {self.action_timeout_sec}s: '
-                        f'{description}; scenario paused (seed={self.scenario_seed})')
+                    self._fail_command(
+                        description,
+                        f'timed out after {self.action_timeout_sec}s; '
+                        f'scenario paused (seed={self.scenario_seed})',
+                        context)
                 return
             self.pending = None
-            response = future.result()
+            try:
+                response = future.result()
+            except Exception as error:  # The exception is logged and pauses the scenario.
+                self._fail_command(description, repr(error), context)
+                return
             if response is not None and response.result.result == response.result.RESULT_OK:
-                self.get_logger().info(description)
+                if context.get('operation') == 'spawn':
+                    name = context['name']
+                    actual_name = response.entity_name or name
+                    if actual_name != name:
+                        self._fail_command(
+                            description,
+                            f'Gazebo returned unexpected entity name {actual_name!r}',
+                            context)
+                        return
+                    model = context['model']
+                    if model in ('pallet', 'cargo_box', 'worker'):
+                        self.entities[name] = {
+                            'class_name': model,
+                            'pose': list(context['pose']),
+                        }
+                    self.get_logger().info(f'[SCENARIO] Spawn success: {name}')
+                    if name in self.actor_names:
+                        self.spawned_actors.add(name)
+                        if len(self.spawned_actors) == len(self.actor_names):
+                            self.get_logger().info(
+                                '[SCENARIO] Actors ready: '
+                                f'{len(self.spawned_actors)}/{len(self.actor_names)}')
+                else:
+                    self.get_logger().info(f'[SCENARIO] {description}')
                 event = String()
                 event.data = description.replace(' ', ':', 1)
                 self.event_publisher.publish(event)
                 self.index += 1
             else:
-                self.get_logger().error(f'Gazebo command failed: {description}')
+                if response is None:
+                    reason = 'service returned no response'
+                else:
+                    reason = response.result.error_message or (
+                        f'result code {response.result.result}')
+                self._fail_command(description, reason, context)
             return
         if self.index >= len(self.actions):
             return
@@ -216,14 +299,27 @@ class ScenarioRunner(Node):
             model = action['model']
             request = SpawnEntity.Request()
             request.name = action['name']
+            request.allow_renaming = False
             request.resource_string = (
                 self.models_dir / model / 'model.sdf').read_text()
             request.initial_pose.header.frame_id = 'world'
             request.initial_pose.pose = self._pose(action['pose'])
-            if self._start(self.spawn_client, request, f"spawn {action['name']}"):
-                if model in ('pallet', 'cargo_box', 'worker'):
-                    self.entities[action['name']] = {
-                        'class_name': model, 'pose': list(action['pose'])}
+            if self.spawn_client.service_is_ready():
+                name = action['name']
+                if name in self.actor_names:
+                    self.get_logger().info(
+                        f'[SCENARIO] Spawning actor: {name}')
+                else:
+                    self.get_logger().info(
+                        f'[SCENARIO] Spawning entity: {name}')
+                self._start(
+                    self.spawn_client, request, f'spawn {name}',
+                    context={
+                        'operation': 'spawn',
+                        'name': name,
+                        'model': model,
+                        'pose': list(action['pose']),
+                    })
         elif kind == 'delete':
             request = DeleteEntity.Request()
             request.entity = action['name']

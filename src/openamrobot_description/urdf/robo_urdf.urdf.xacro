@@ -628,8 +628,13 @@ Stephen Brawner (brawner@gmail.com)
   <joint
     name="lidar_joint"
     type="fixed">
+    <!-- Keep the 2D scan plane above the chassis while remaining low enough
+         to detect pallets and other warehouse obstacles.  The base_link STL
+         top is about 0.2431 m above base_link; with base_link at 0.0635 m
+         above ground and the lidar mesh bottom about 0.0459 m below its
+         frame, z=0.35 gives about 0.061 m clearance to the chassis. -->
     <origin
-      xyz="0.35135 -0.0010251 0.1683"
+      xyz="0 0 0.35"
       rpy="0 0 0" />
     <parent
       link="base_link" />

@@ -1,6 +1,7 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from warehouse_simulation.scenario_runner import ScenarioRunner
 import yaml
 
 
@@ -39,6 +40,62 @@ def test_two_workers_spawn_immediately_and_patrol_continuously():
     deleted = {
         action['name'] for action in actions if action['action'] == 'delete'}
     assert {'crossing_worker', 'station_worker'}.isdisjoint(deleted)
+
+
+def test_actor_validation_scales_to_any_number_of_workers():
+    actions = []
+    expected_names = set()
+    for index in range(4):
+        name = f'worker_{index}'
+        expected_names.add(name)
+        actions.extend([
+            {
+                'action': 'spawn',
+                'name': name,
+                'model': 'worker',
+                'pose': [float(index), float(index + 1), 0.0, 0.0],
+            },
+            {
+                'action': 'follow_path',
+                'name': name,
+                'speed': 0.5,
+                'loop': True,
+                'path': [[index, index + 1], [index, index + 2]],
+            },
+        ])
+
+    assert ScenarioRunner._validate_actors(actions) == expected_names
+
+
+def test_actor_validation_rejects_duplicate_names_and_poses():
+    duplicate_name = [
+        {'action': 'spawn', 'name': 'worker', 'model': 'worker',
+         'pose': [0.0, 0.0, 0.0, 0.0]},
+        {'action': 'spawn', 'name': 'worker', 'model': 'worker',
+         'pose': [1.0, 0.0, 0.0, 0.0]},
+        {'action': 'follow_path', 'name': 'worker', 'path': [[0.0, 0.0]]},
+    ]
+    try:
+        ScenarioRunner._validate_actors(duplicate_name)
+    except ValueError as error:
+        assert 'names must be unique' in str(error)
+    else:
+        raise AssertionError('duplicate worker name was accepted')
+
+    duplicate_pose = [
+        {'action': 'spawn', 'name': 'worker_a', 'model': 'worker',
+         'pose': [0.0, 0.0, 0.0, 0.0]},
+        {'action': 'follow_path', 'name': 'worker_a', 'path': [[0.0, 0.0]]},
+        {'action': 'spawn', 'name': 'worker_b', 'model': 'worker',
+         'pose': [0.0, 0.0, 0.0, 1.0]},
+        {'action': 'follow_path', 'name': 'worker_b', 'path': [[0.0, 0.0]]},
+    ]
+    try:
+        ScenarioRunner._validate_actors(duplicate_pose)
+    except ValueError as error:
+        assert 'different initial poses' in str(error)
+    else:
+        raise AssertionError('overlapping worker poses were accepted')
 
 
 def test_workers_cross_both_station_transfer_routes():

@@ -1,11 +1,15 @@
-# Remove returns from the OpenAMRobot rear chassis.  These bounds match the
-# empirically calibrated simulation profile in openamr-platform-sw: keep the
-# useful forward 280 degrees and mask the rear +/-40 degree body sector.
+# The LiDAR is mounted at the robot centre with its scan plane above the
+# highest chassis geometry.  The original OpenAMR profile masked the rear
+# +/-40 degree sector because that placement produced chassis returns.  That
+# sector is no longer physically occupied by this model, so preserve the
+# scan-filter pipeline/topic while passing the complete 360 degree scan.
 scan_body_filter:
   ros__parameters:
     filter1:
       name: body_filter
       type: laser_filters/LaserScanAngularBoundsFilter
       params:
-        lower_angle: -2.443
-        upper_angle: 2.443
+        # Slightly exceed +/-pi so the floating-point endpoint of the first
+        # sample is not dropped by LaserScanAngularBoundsFilter.
+        lower_angle: -3.1416
+        upper_angle: 3.1416
