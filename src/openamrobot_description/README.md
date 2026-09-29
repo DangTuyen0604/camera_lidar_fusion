@@ -2,7 +2,7 @@
 
 ROS 2 robot description package for the **OpenAMRobot** mobile base — differential-drive platform with four passive caster wheels and a 2D LiDAR sensor.
 
-Contains: URDF/Xacro model, STL meshes, Gazebo plugins (in xacro), and RViz visualization launch.
+Contains: URDF/Xacro model, STL meshes, upstream Gazebo plugin tags (in xacro, unused here), and RViz visualization launch.
 
 ## Contents
 
@@ -15,7 +15,7 @@ openamrobot_description/
 │   └── visual/                 ← full-detail STL meshes for rendering
 ├── urdf/
 │   ├── robo_urdf.urdf.xacro    ← main robot model (includes camera_link + camera_optical_frame)
-│   ├── gazebo_control.xacro    ← Gazebo plugins (diff-drive, LiDAR, RGB camera) + friction
+│   ├── gazebo_control.xacro    ← upstream Gazebo plugin parameters (reference for warehouse_mujoco)
 │   └── robot.sdf
 ├── package.xml
 └── setup.py
@@ -29,7 +29,8 @@ Visualize the robot in RViz with interactive joint sliders:
 ros2 launch openamrobot_description launch.py
 ```
 
-For Gazebo simulation, see the `openamrobot_gazebo` package.
+For simulation, see the `warehouse_mujoco` package (MuJoCo), which mirrors
+this model in `mjcf/amr.xml` and loads these meshes.
 
 ## Robot Model
 

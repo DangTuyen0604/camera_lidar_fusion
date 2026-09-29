@@ -4,7 +4,7 @@ One-command bringup for the integrated warehouse perception stack.
 
 Starts one coherent simulation-time pipeline:
 
-    1. Gazebo warehouse, robot, sensor bridges and scenario runner
+    1. MuJoCo warehouse, robot, sensors and scenario runner
     2. live camera-LiDAR synchronization, detection and XYZ fusion
     3. obstacle bridge, localization, Nav2 and collision safety
     4. RViz and the M01-M04 warehouse mission
@@ -30,14 +30,19 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    """Launch Gazebo, Nav2, RViz and the autonomous warehouse mission."""
+    """Launch MuJoCo, Nav2, RViz and the autonomous warehouse mission."""
     nav_share = Path(get_package_share_directory('navigation_bringup'))
     warehouse_launch = nav_share / 'launch' / 'warehouse_full_demo.launch.py'
 
-    gazebo_gui = LaunchConfiguration('gazebo_gui')
+    sim_gui = LaunchConfiguration('sim_gui')
     use_sim_time = LaunchConfiguration('use_sim_time')
     use_rviz = LaunchConfiguration('use_rviz')
     mission_autostart = LaunchConfiguration('mission_autostart')
+    missions_file = LaunchConfiguration('missions_file')
+    use_scenario = LaunchConfiguration('use_scenario')
+    worker_roaming = LaunchConfiguration('worker_roaming')
+    worker_random_seed = LaunchConfiguration('worker_random_seed')
+    worker_update_period = LaunchConfiguration('worker_update_period_sec')
     rviz_delay = LaunchConfiguration('rviz_delay')
 
     # Do not let GTK/GIO paths inherited from a snap-packaged editor inject
@@ -56,11 +61,11 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument(
-            'gazebo_gui', default_value='true',
-            description='Start the Gazebo graphical interface.'),
+            'sim_gui', default_value='true',
+            description='Open the MuJoCo viewer window.'),
         DeclareLaunchArgument(
             'use_sim_time', default_value='true',
-            description='Use the Gazebo clock throughout the stack.'),
+            description='Use the simulator clock throughout the stack.'),
         DeclareLaunchArgument(
             'use_rviz', default_value='true',
             description='Start RViz with the navigation view.'),
@@ -68,14 +73,36 @@ def generate_launch_description():
             'mission_autostart', default_value='true',
             description='Start the warehouse mission automatically.'),
         DeclareLaunchArgument(
+            'missions_file',
+            default_value=str(Path(get_package_share_directory(
+                'warehouse_mission_manager')) / 'config' / 'missions.yaml'),
+            description='Mission sequence YAML; useful for isolated validation.'),
+        DeclareLaunchArgument(
+            'use_scenario', default_value='true',
+            description='Run scenario entities/actions; disable for isolated missions.'),
+        DeclareLaunchArgument(
+            'worker_roaming', default_value='true',
+            description='Enable seeded waypoint roaming for warehouse workers.'),
+        DeclareLaunchArgument(
+            'worker_random_seed', default_value='42',
+            description='Reproducible seed for warehouse worker roaming.'),
+        DeclareLaunchArgument(
+            'worker_update_period_sec', default_value='0.20',
+            description='Scenario motion/truth update period in seconds.'),
+        DeclareLaunchArgument(
             'rviz_delay', default_value='5.0',
             description='Seconds to wait before starting RViz.'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(warehouse_launch)),
             launch_arguments={
-                'gui': gazebo_gui,
+                'gui': sim_gui,
                 'use_sim_time': use_sim_time,
                 'mission_autostart': mission_autostart,
+                'missions_file': missions_file,
+                'use_scenario': use_scenario,
+                'worker_roaming': worker_roaming,
+                'worker_random_seed': worker_random_seed,
+                'worker_update_period_sec': worker_update_period,
                 # ScenarioRunner still owns physical objects and benchmark
                 # truth, but only live perception may drive the bridge.
                 'publish_fused_detections': 'false',

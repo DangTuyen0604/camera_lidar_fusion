@@ -12,6 +12,10 @@ def test_gate11_launch_uses_sensor_detection_fusion_and_navigation():
     assert '/camera/image_raw' in launch
     assert '/lidar/points' in launch
     assert 'scenario_runner' not in launch
+    # Default path: the full mission workflow plus a live camera window.
+    assert_contains(
+        launch, 'bringup_sim.launch.py', "executable='camera_viewer'",
+        "'mission', default_value='true'")
 
 
 def test_collision_monitor_consumes_bridge_output():

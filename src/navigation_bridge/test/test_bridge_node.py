@@ -170,6 +170,11 @@ class TestBridgeNode(unittest.TestCase):
         self.assertAlmostEqual(min(point[1] for point in points), -0.4, places=4)
         self.assertAlmostEqual(max(point[1] for point in points), 0.4, places=4)
 
+        # Each new valid batch clears the previous batch's marks first, so a
+        # moving obstacle cannot leave a trail in the costmap.
+        self.assertTrue(self.spin_until(lambda: bool(self.clearings)))
+        clearings_before_expiry = len(self.clearings)
+
         # Repeated invalid observations must not refresh the valid obstacle's
         # lifetime. The bridge must still emit clearing rays and an empty cloud.
         deadline = time.monotonic() + 0.6
@@ -178,10 +183,11 @@ class TestBridgeNode(unittest.TestCase):
             rclpy.spin_once(self.node, timeout_sec=0.05)
         expired_clouds = len(self.clouds)
         self.assertTrue(self.spin_until(
-            lambda: bool(self.clearings) and
+            lambda: len(self.clearings) > clearings_before_expiry and
             sum(item.width == 0 for item in self.clouds[expired_clouds:]) >= 2,
             2.0))
-        self.assertEqual(len(self.clearings), 1)
+        # Expiry clears exactly once.
+        self.assertEqual(len(self.clearings), clearings_before_expiry + 1)
 
 
 @launch_testing.post_shutdown_test()

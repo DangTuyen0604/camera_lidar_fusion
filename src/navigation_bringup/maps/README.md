@@ -20,8 +20,8 @@ ros2 service call /map_saver/save_map nav2_msgs/srv/SaveMap \
 ```
 
 Pass the resulting YAML to localization or the full demo with
-`map:=/absolute/path/warehouse_slam_map.yaml`. AMCL owns `map -> odom`; Gazebo
-owns only `odom -> base_footprint`, so the TF tree has no duplicate publisher.
+`map:=/absolute/path/warehouse_slam_map.yaml`. AMCL owns `map -> odom`; the MuJoCo
+simulator owns only `odom -> base_footprint`, so the TF tree has no duplicate publisher.
 
 After building and sourcing the workspace, run the complete Stage 2 stack with:
 
@@ -29,5 +29,5 @@ After building and sourcing the workspace, run the complete Stage 2 stack with:
 ros2 launch navigation_bringup stage2.launch.py
 ```
 
-Use `gazebo_gui:=true` to show Gazebo, or `use_rviz:=false` for a fully
+Use `sim_gui:=true` to show the MuJoCo viewer, or `use_rviz:=false` for a fully
 headless run. Both `map` and `params_file` can be overridden for another map.

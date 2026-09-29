@@ -23,6 +23,11 @@ def generate_launch_description():
     gui = LaunchConfiguration('gui')
     map_file = LaunchConfiguration('map')
     mission_autostart = LaunchConfiguration('mission_autostart')
+    missions_file = LaunchConfiguration('missions_file')
+    use_scenario = LaunchConfiguration('use_scenario')
+    worker_roaming = LaunchConfiguration('worker_roaming')
+    worker_random_seed = LaunchConfiguration('worker_random_seed')
+    worker_update_period = LaunchConfiguration('worker_update_period_sec')
     publish_fused_detections = LaunchConfiguration(
         'publish_fused_detections')
     return LaunchDescription([
@@ -30,13 +35,24 @@ def generate_launch_description():
         DeclareLaunchArgument('gui', default_value='false'),
         DeclareLaunchArgument('mission_autostart', default_value='true'),
         DeclareLaunchArgument(
+            'missions_file',
+            default_value=str(Path(get_package_share_directory(
+                'warehouse_mission_manager')) / 'config' / 'missions.yaml')),
+        DeclareLaunchArgument('use_scenario', default_value='true'),
+        DeclareLaunchArgument('worker_roaming', default_value='true'),
+        DeclareLaunchArgument('worker_random_seed', default_value='42'),
+        DeclareLaunchArgument('worker_update_period_sec', default_value='0.20'),
+        DeclareLaunchArgument(
             'publish_fused_detections', default_value='true'),
         DeclareLaunchArgument(
             'map', default_value=str(nav_share / 'maps' / 'warehouse_map.yaml')),
         include('warehouse_simulation', 'warehouse.launch.py', {
             'gui': gui,
             'use_sim_time': use_sim_time,
-            'use_scenario': 'true',
+            'use_scenario': use_scenario,
+            'enable_roaming': worker_roaming,
+            'random_seed': worker_random_seed,
+            'update_period_sec': worker_update_period,
             'publish_fused_detections': publish_fused_detections,
         }),
         # Match the OpenAMRobot reference stack: remove returns from the rear
@@ -62,6 +78,7 @@ def generate_launch_description():
             include('warehouse_mission_manager', 'mission_demo.launch.py', {
                 'autostart': mission_autostart,
                 'use_sim_time': use_sim_time,
+                'missions_file': missions_file,
             }),
         ]),
     ])

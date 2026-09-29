@@ -39,7 +39,7 @@ def generate_launch_description():
     }
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true'),
-        DeclareLaunchArgument('gazebo_gui', default_value='false'),
+        DeclareLaunchArgument('sim_gui', default_value='false'),
         DeclareLaunchArgument('use_rviz', default_value='true'),
         DeclareLaunchArgument(
             'map',
@@ -50,7 +50,7 @@ def generate_launch_description():
             default_value=str(share / 'config' / 'nav2_stage2_params.yaml'),
         ),
         include('warehouse_simulation', 'warehouse.launch.py', {
-            'gui': LaunchConfiguration('gazebo_gui'),
+            'gui': LaunchConfiguration('sim_gui'),
             'use_sim_time': use_sim_time,
             'use_scenario': 'false',
         }),

@@ -1,12 +1,14 @@
 """Semantic configuration checks for the Stage 3 navigation safety chain."""
 
 import ast
+import importlib.util
+from pathlib import Path
 
 from contracts import package_root, text, yaml_asset
 
 
 def test_stage3_uses_clean_geometry_map():
-    """The Gazebo demo must not load scan-shadow artifacts from the SLAM map."""
+    """The MuJoCo demo must not load scan-shadow artifacts from the SLAM map."""
     launch = text('navigation_bringup', 'launch/stage3.launch.py')
 
     assert "'maps' / 'warehouse_map.yaml'" in launch
@@ -14,7 +16,7 @@ def test_stage3_uses_clean_geometry_map():
 
 
 def test_geometry_map_initial_pose_matches_warehouse_spawn():
-    """AMCL and Gazebo must agree on the robot's initial map coordinate."""
+    """AMCL and the simulator must agree on the robot's initial map coordinate."""
     config = yaml_asset(
         'navigation_bringup', 'config/nav2_stage3_params.yaml')
     initial = config['amcl']['ros__parameters']['initial_pose']
@@ -27,20 +29,50 @@ def test_geometry_map_initial_pose_matches_warehouse_spawn():
     assert "'spawn_y': '-4.0'" in warehouse
 
 
-def test_warehouse_map_matches_all_physical_docks():
-    """The static map must place every dock where Gazebo collision geometry is."""
-    map_path = package_root('navigation_bringup') / 'maps/warehouse_map.pgm'
+def _warehouse_map():
+    maps = package_root('navigation_bringup') / 'maps'
+    metadata = yaml_asset('navigation_bringup', 'maps/warehouse_map.yaml')
     tokens = [
-        token for line in map_path.read_text().splitlines()
+        token for line in (maps / metadata['image']).read_text().splitlines()
         if not line.startswith('#') for token in line.split()
     ]
-    assert tokens[:4] == ['P2', '90', '70', '9']
+    assert tokens[0] == 'P2' and tokens[3] == '9'
+    width, height = int(tokens[1]), int(tokens[2])
     pixels = [int(value) for value in tokens[4:]]
+    assert len(pixels) == width * height
+    return metadata, width, height, pixels
+
+
+def test_warehouse_map_resolves_docking_precision():
+    """AMCL cannot resolve sub-cell error; docking is validated to 8 cm."""
+    metadata, _, _, _ = _warehouse_map()
+    assert metadata['resolution'] <= 0.05
+
+
+def test_warehouse_map_is_generated_from_current_sdf():
+    """Re-rasterize warehouse.sdf; edit the world, then rerun the generator."""
+    workspace = Path(__file__).resolve().parents[3]
+    spec = importlib.util.spec_from_file_location(
+        'generate_warehouse_map', workspace / 'tools' / 'generate_warehouse_map.py')
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    metadata, width, height, pixels = _warehouse_map()
+    expected = generator.rasterize(metadata['resolution'])
+    assert expected.shape == (height, width)
+    assert expected.ravel().tolist() == pixels, (
+        'warehouse_map.pgm is stale: run tools/generate_warehouse_map.py')
+
+
+def test_warehouse_map_matches_all_physical_docks():
+    """The static map must place every dock where simulator collision geometry is."""
+    metadata, width, height, pixels = _warehouse_map()
+    resolution = metadata['resolution']
+    origin_x, origin_y = metadata['origin'][:2]
 
     def occupied(world_x, world_y):
-        column = int((world_x + 9.0) / 0.2)
-        row = 69 - int((world_y + 7.0) / 0.2)
-        return pixels[row * 90 + column] == 0
+        column = int((world_x - origin_x) / resolution)
+        row = height - 1 - int((world_y - origin_y) / resolution)
+        return pixels[row * width + column] == 0
 
     # Collision centres include the model-local -0.15 m pose offset.
     for centre in ((-5.5, 3.5), (-1.5, 3.5),
@@ -54,7 +86,7 @@ def test_warehouse_map_matches_all_physical_docks():
 
 
 def test_collision_monitor_owns_final_velocity_command():
-    """Collision Monitor must sit between the smoother and Gazebo command."""
+    """Collision Monitor must sit between the smoother and simulator command."""
     config = yaml_asset(
         'navigation_bringup', 'config/nav2_stage3_params.yaml')
     monitor = config['collision_monitor']['ros__parameters']

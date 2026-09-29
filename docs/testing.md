@@ -35,6 +35,6 @@ colcon test-result --verbose
 ```
 
 No important test may be skipped. After launch tests, verify that no descendant
-ROS, Gazebo or launch process remains. The live warehouse end-to-end sequence
+ROS, simulator or launch process remains. The live warehouse end-to-end sequence
 must observe Nav2 activation, mission start, pallet replan, worker stop/resume,
 box avoidance, docking, unload, mission completion and zero collisions.

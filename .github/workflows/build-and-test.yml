@@ -17,6 +17,8 @@ jobs:
     env:
       ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
       ROS2CLI_DISABLE_DAEMON: 1
+      # No display on hosted runners: MuJoCo renders the camera in software.
+      MUJOCO_GL: osmesa
 
     steps:
       - name: Check out repository
@@ -36,6 +38,14 @@ jobs:
           sudo rosdep init 2>/dev/null || true
           rosdep update --rosdistro jazzy
           rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
+
+      - name: Install MuJoCo simulator
+        # No rosdep key on Jazzy; ros2 entry points use the system Python.
+        shell: bash
+        run: |
+          sudo apt-get install -y libosmesa6
+          python3 -m pip install --user --break-system-packages 'mujoco>=3.2,<4'
+          python3 -c "import mujoco; print('MuJoCo', mujoco.__version__)"
 
       - name: Install Python dependencies
         shell: bash

@@ -17,7 +17,6 @@
   <exec_depend>nav2_map_server</exec_depend>
   <exec_depend>navigation_bridge</exec_depend>
   <exec_depend>openamrobot_description</exec_depend>
-  <exec_depend>openamrobot_gazebo</exec_depend>
   <exec_depend>warehouse_simulation</exec_depend>
   <exec_depend>warehouse_mission_manager</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>

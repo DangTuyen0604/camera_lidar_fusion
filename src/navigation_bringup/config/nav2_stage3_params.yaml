@@ -61,6 +61,10 @@ bt_navigator:
     global_frame: map
     robot_base_frame: base_link
     odom_topic: /odom
+    # BT action nodes wait this long (ms) for planner/controller to accept a
+    # goal. The 20 ms default fails under simulation + perception load and
+    # aborts the whole NavigateToPose.
+    default_server_timeout: 200
 
 velocity_smoother:
   ros__parameters:
@@ -164,6 +168,10 @@ local_costmap:
         scan:
           topic: /scan_filtered
           data_type: LaserScan
+          # Per-source heights default to 0.0 in Nav2, which would drop
+          # every return of the 0.41 m high LiDAR.
+          min_obstacle_height: 0.0
+          max_obstacle_height: 2.0
           clearing: true
           marking: true
           obstacle_max_range: 9.0

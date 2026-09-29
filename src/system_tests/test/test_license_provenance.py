@@ -12,10 +12,10 @@ EXPECTED_LICENSES = {
     'navigation_bridge': 'Apache-2.0',
     'navigation_bringup': 'Apache-2.0',
     'openamrobot_description': 'MIT',
-    'openamrobot_gazebo': 'MIT',
     'perception_core': 'Apache-2.0',
     'system_tests': 'Apache-2.0',
     'warehouse_mission_manager': 'Apache-2.0',
+    'warehouse_mujoco': 'Apache-2.0',
     'warehouse_simulation': 'Apache-2.0',
     'yolo_detector': 'Apache-2.0',
 }
@@ -35,7 +35,6 @@ def test_openamrobot_notice_and_licenses_are_shipped():
     assert 'MIT' in notice
     assert 'CERN-OHL-P-2.0' in notice
     assert '13c76cce0b8c907e2c578fc281ccf37b7b01342b' in notice
-    for package in ('openamrobot_description', 'openamrobot_gazebo'):
-        package_root = REPO_ROOT / 'src' / package
-        assert (package_root / 'LICENSE').is_file()
-        assert (package_root / 'LICENSING.md').is_file()
+    package_root = REPO_ROOT / 'src' / 'openamrobot_description'
+    for name in ('LICENSE', 'LICENSING.md', 'UPSTREAM.md'):
+        assert (package_root / name).is_file()

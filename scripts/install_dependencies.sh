@@ -13,6 +13,7 @@ sudo apt-get install -y \
   curl \
   git \
   libeigen3-dev \
+  libosmesa6 \
   libopencv-dev \
   libyaml-cpp-dev \
   python3-colcon-common-extensions \
@@ -44,6 +45,10 @@ unset AMENT_PREFIX_PATH CMAKE_PREFIX_PATH COLCON_PREFIX_PATH
 . /opt/ros/jazzy/setup.bash
 set -u
 rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
+
+# MuJoCo (warehouse simulator) has no rosdep key on Jazzy.  ros2 entry points
+# run on the system Python, so install it there rather than in .venv.
+python3 -m pip install --user --break-system-packages 'mujoco>=3.2,<4'
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 python3 -m venv --system-site-packages "$project_root/.venv"

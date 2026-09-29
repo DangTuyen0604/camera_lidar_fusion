@@ -31,6 +31,8 @@ setup(
             'yolo_detector.yolo_detector_node:main',
             'simulation_color_detector = '
             'yolo_detector.simulation_color_detector_node:main',
+            'camera_viewer = '
+            'yolo_detector.camera_viewer_node:main',
         ],
     },
 )

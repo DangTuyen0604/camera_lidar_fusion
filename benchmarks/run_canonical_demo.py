@@ -41,7 +41,8 @@ def run_once(run_number, seed, domain_id, probe, log_path):
     with log_path.open('w', encoding='utf-8') as log:
         stack = subprocess.Popen(
             ['ros2', 'launch', 'fusion_bringup',
-             'final_demo.launch.py', 'use_rviz:=false'],
+             'final_demo.launch.py', 'mission:=false', 'use_rviz:=false',
+             'sim_gui:=false', 'camera_view:=false'],
             env=environment, stdout=log, stderr=subprocess.STDOUT,
             start_new_session=True)
         try:

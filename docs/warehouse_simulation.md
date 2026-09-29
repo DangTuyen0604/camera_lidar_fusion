@@ -1,7 +1,9 @@
 # Warehouse simulation
 
-The warehouse is a deterministic Gazebo Sim world with four stations, aisles,
-shelves, conveyors, pallets, workers and cargo boxes. Start it headless with:
+The warehouse is a deterministic MuJoCo simulation (`warehouse_mujoco`) with
+four stations, aisles, shelves, conveyors, pallets, workers and cargo boxes.
+The layout is defined once in `worlds/warehouse.sdf` and its `models/`; the
+simulator converts it into MuJoCo geometry at start-up. Start it headless with:
 
 ```bash
 ros2 launch warehouse_simulation warehouse.launch.py gui:=false use_scenario:=true
@@ -19,7 +21,7 @@ The complete one-command stack is:
 ros2 launch navigation_bringup warehouse_full_demo.launch.py gui:=false
 ```
 
-For the operator-facing simulation with Gazebo GUI, RViz and mission autostart,
+For the operator-facing simulation with the MuJoCo viewer, RViz and mission autostart,
 use the top-level bringup:
 
 ```bash

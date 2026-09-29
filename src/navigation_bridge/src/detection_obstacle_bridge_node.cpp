@@ -180,12 +180,36 @@ private:
       return;
     }
 
+    // A moving worker must not leave a trail of stale marks from A to B.
+    // Clear where the previous batch marked before marking the new batch;
+    // the costmap applies clearing before marking in the same update.
+    publishClearing();
     publisher_->publish(makeCloud(transformed, stamp));
     last_points_ = std::move(transformed);
+    last_points_stamp_ = stamp;
     last_observation_ = now();
     has_observation_ = true;
     clearing_sent_ = false;
     last_status_ = "OK";
+  }
+
+  // Raytrace slightly beyond every previously marked point so the costmap
+  // frees those cells, then forget them. The points are in target_frame at
+  // their own capture time; keep that stamp so the costmap's TF lookup puts
+  // the clearing rays where the marks are, even while the robot moves.
+  void publishClearing()
+  {
+    if (last_points_.empty()) {
+      return;
+    }
+    std::vector<ObstaclePoint> rays;
+    rays.reserve(last_points_.size());
+    for (const auto & p : last_points_) {
+      rays.push_back({p.x * 1.05F, p.y * 1.05F, p.z});
+    }
+    clearing_publisher_->publish(makeCloud(rays, last_points_stamp_));
+    last_points_.clear();
+    ++clearing_publications_;
   }
 
   void onTimer()
@@ -201,15 +225,8 @@ private:
       return;
     }
     if (!clearing_sent_) {
-      std::vector<ObstaclePoint> rays;
-      rays.reserve(last_points_.size());
-      for (const auto & p : last_points_) {
-        rays.push_back({p.x * 1.05F, p.y * 1.05F, p.z});
-      }
-      clearing_publisher_->publish(makeCloud(rays, now()));
-      last_points_.clear();
+      publishClearing();
       clearing_sent_ = true;
-      ++clearing_publications_;
       last_status_ = "Obstacle timeout: clearing published";
     }
     // Collision Monitor treats a silent PointCloud source as failed. Keep a
@@ -267,6 +284,7 @@ private:
   bool has_observation_{false};
   bool clearing_sent_{false};
   std::vector<ObstaclePoint> last_points_;
+  rclcpp::Time last_points_stamp_{0, 0, RCL_ROS_TIME};
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr clearing_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;

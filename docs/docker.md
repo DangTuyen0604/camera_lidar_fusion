@@ -3,7 +3,8 @@
 Two build targets are provided:
 
 - `runtime-cpu`: ROS 2 Jazzy, projection, ONNX Runtime CPU inference, fusion,
-  calibration monitoring, Gazebo/Nav2 and mission runtime.
+  calibration monitoring, MuJoCo/Nav2 and mission runtime (camera rendered
+  in software with `MUJOCO_GL=osmesa`).
 - `training`: runtime plus PyTorch, torchvision and Ultralytics for dataset
   preparation, YOLO training and ONNX export.
 

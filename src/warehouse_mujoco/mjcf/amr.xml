@@ -1,0 +1,135 @@
+<!--
+  OpenAMRobot differential-drive AMR for MuJoCo.
+
+  Kinematics, masses and inertias mirror this workspace's
+  openamrobot_description/urdf/robo_urdf.urdf.xacro (base_footprint is the
+  TF root 0.0635 m below base_link; it has no MuJoCo body).  The CAD meshes
+  are visual (group 1).  Contacts (group 4): the chassis is the 0.32 m Nav2
+  footprint cylinder the warehouse was designed for; each drive wheel is a thin
+  ellipsoid of the URDF wheel radius touching the floor at a single point, so
+  odometry does not drift from rim-edge scrubbing; the four ball casters are
+  frictionless like the Gazebo <mu>0</mu> casters.
+
+  Friction: MuJoCo combines a geom pair with max(), Gazebo/ODE with min().
+  World geometry therefore uses mu=0.2 (sdf_loader.WORLD_FRICTION) so the
+  effective pairs equal Gazebo's: chassis-obstacle min(0.2, 1) = 0.2 and
+  wheel-floor min(1.5, 1) = 1.0.
+
+  Frame names match the URDF so the ROS node can publish sensor data in
+  lidar_link / imu_link / camera_optical_frame.
+-->
+<mujoco model="openamrobot">
+  <default>
+    <default class="amr_visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0"
+            rgba="0.79 0.82 0.93 1"/>
+    </default>
+    <!-- Spring-loaded drive wheels (25 N preload each).  The URDF has all
+         six contacts rigid, which in MuJoCo makes the load split between
+         wheels and casters hypersensitive to sub-millimetre geometry and the
+         drive wheels lose traction.  The suspension keeps traction constant
+         so wheel odometry tracks ground truth to within ~0.5 %. -->
+    <default class="suspension">
+      <joint type="slide" axis="0 0 1" range="-0.01 0.01" stiffness="5000"
+             springref="-0.005" damping="60"/>
+    </default>
+    <default class="amr_collision">
+      <geom contype="1" conaffinity="1" group="4" density="0" rgba="0.9 0.3 0.3 0.4"/>
+    </default>
+    <!-- Ball casters touch only the floor (contact bit 2): they sit under the
+         chassis at 0.39 m from its centre, outside the 0.32 m footprint, and
+         would otherwise snag on the HOME dock whenever the robot turns there. -->
+    <default class="caster">
+      <geom contype="2" conaffinity="2" condim="1" group="4" density="0" rgba="0.9 0.3 0.3 0.4"/>
+    </default>
+  </default>
+
+  <asset>
+    <mesh name="base_link" file="base_link.STL"/>
+    <mesh name="left_wheel_link" file="left_wheel_link.STL"/>
+    <mesh name="right_wheel_link" file="right_wheel_link.STL"/>
+    <mesh name="caster_link" file="fl_caster_link.STL"/>
+    <mesh name="caster_wheel_link" file="fr_wheel_link.STL"/>
+    <mesh name="lidar_link" file="lidar_link.STL"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0 -4 0.12">
+      <freejoint name="base_free"/>
+      <inertial pos="0.0130207 -0.0172284 0.0788068" mass="4.17533781895232"
+                fullinertia="0.0556823 0.0914895 0.135706 1.5528e-06 -7.03614e-05 2.61487e-05"/>
+      <geom name="base_visual" class="amr_visual" mesh="base_link"/>
+      <!-- The chassis collides as the Nav2 footprint (robot_radius 0.32 in
+           nav2_*_params.yaml), not as the CAD shell.  The warehouse docks,
+           map and station poses were laid out for that footprint: the CAD
+           nose (0.418 m ahead of base_link) would sit 7 cm inside every dock
+           at its docking pose and sweeps into the HOME dock when turning.
+           Gazebo's lenient mesh collision hid this; MuJoCo would not.  The
+           CAD mesh stays the visual.  mu=0.2 as in gazebo_control.xacro. -->
+      <geom name="base_collision" class="amr_collision" type="cylinder"
+            size="0.32 0.127" pos="0 0 0.116" friction="0.2 0.005 0.0001"/>
+
+      <!-- Fixed ball casters (URDF: *_caster_joint + *_wheel_joint, fixed). -->
+      <geom class="amr_visual" mesh="caster_link" pos="0.27505 0.215 -0.0093"/>
+      <geom class="amr_visual" mesh="caster_link" pos="0.27505 -0.215 -0.0093"/>
+      <geom class="amr_visual" mesh="caster_link" pos="-0.27495 0.215 -0.0093"/>
+      <geom class="amr_visual" mesh="caster_link" pos="-0.27495 -0.215 -0.0093"/>
+      <geom class="amr_visual" mesh="caster_wheel_link" pos="0.26005 0.215 -0.037046" rgba="0.2 0.2 0.22 1"/>
+      <geom class="amr_visual" mesh="caster_wheel_link" pos="0.26005 -0.215 -0.037046" rgba="0.2 0.2 0.22 1"/>
+      <geom class="amr_visual" mesh="caster_wheel_link" pos="-0.28995 0.215 -0.037046" rgba="0.2 0.2 0.22 1"/>
+      <geom class="amr_visual" mesh="caster_wheel_link" pos="-0.28995 -0.215 -0.037046" rgba="0.2 0.2 0.22 1"/>
+      <geom name="fl_caster" class="caster" type="sphere" size="0.0265" pos="0.26005 0.215 -0.037046"/>
+      <geom name="fr_caster" class="caster" type="sphere" size="0.0265" pos="0.26005 -0.215 -0.037046"/>
+      <geom name="bl_caster" class="caster" type="sphere" size="0.0265" pos="-0.28995 0.215 -0.037046"/>
+      <geom name="br_caster" class="caster" type="sphere" size="0.0265" pos="-0.28995 -0.215 -0.037046"/>
+
+      <!-- Sensors: lidar_joint / camera_joint / imu_joint origins from the
+           URDF.  The lidar sits 0.35 m above base_link, clear of the chassis. -->
+      <body name="lidar_link" pos="0 0 0.35">
+        <geom class="amr_visual" mesh="lidar_link" rgba="0.08 0.08 0.09 1"/>
+        <site name="lidar" size="0.01" rgba="1 0 0 1" group="5"/>
+      </body>
+      <body name="camera_link" pos="0.35 0 0.20">
+        <geom class="amr_visual" type="box" size="0.02 0.04 0.02" rgba="0.1 0.1 0.1 1"/>
+        <!-- MuJoCo cameras look along -Z with +Y up: face base +X, up +Z.
+             fovy = 2*atan(tan(1.047/2) * 480/640) for the 640x480 sensor. -->
+        <camera name="front_camera" xyaxes="0 -1 0 0 0 1" fovy="46.83"/>
+      </body>
+      <site name="imu" pos="0 0 0.12" size="0.01" group="5"/>
+
+      <body name="left_wheel_link" pos="4.7743e-05 0.20375 0.046533">
+        <joint name="left_wheel_suspension" class="suspension"/>
+        <joint name="left_wheel_joint" type="hinge" axis="0 1 0" damping="0.001"/>
+        <inertial pos="6.285e-07 -0.00398707 -0.000569791" mass="1.06112497715273"
+                  fullinertia="0.003399 0.00642635 0.00339739 -1.58839e-08 -5.9956e-08 -1.66765e-07"/>
+        <geom class="amr_visual" mesh="left_wheel_link" rgba="0.18 0.18 0.2 1"/>
+        <geom name="left_wheel" class="amr_collision" type="ellipsoid" size="0.11 0.023 0.11" friction="1.0 0.005 0.0001"/>
+      </body>
+      <body name="right_wheel_link" pos="4.7657e-05 -0.20375 0.046533">
+        <joint name="right_wheel_suspension" class="suspension"/>
+        <joint name="right_wheel_joint" type="hinge" axis="0 1 0" damping="0.001"/>
+        <inertial pos="-6.285e-07 0.00398707 -0.000569791" mass="1.06112497715273"
+                  fullinertia="0.003399 0.00642635 0.00339739 -1.58839e-08 5.9956e-08 1.66765e-07"/>
+        <geom class="amr_visual" mesh="right_wheel_link" rgba="0.18 0.18 0.2 1"/>
+        <geom name="right_wheel" class="amr_collision" type="ellipsoid" size="0.11 0.023 0.11" friction="1.0 0.005 0.0001"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Wheel velocity servos; the simulator turns /cmd_vel into targets with
+         the same limits as the former gz DiffDrive plugin.  A stiff servo
+         mimics its velocity-controlled joints; 4 N m is about the wheel
+         traction limit. -->
+    <velocity name="left_wheel_motor" joint="left_wheel_joint" kv="50"
+              ctrlrange="-12 12" forcerange="-4 4"/>
+    <velocity name="right_wheel_motor" joint="right_wheel_joint" kv="50"
+              ctrlrange="-12 12" forcerange="-4 4"/>
+  </actuator>
+
+  <sensor>
+    <gyro name="imu_gyro" site="imu"/>
+    <accelerometer name="imu_accel" site="imu"/>
+    <framequat name="imu_quat" objtype="site" objname="imu"/>
+  </sensor>
+</mujoco>

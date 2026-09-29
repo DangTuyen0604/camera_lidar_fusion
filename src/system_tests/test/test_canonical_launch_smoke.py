@@ -26,12 +26,14 @@ from tf2_msgs.msg import TFMessage
 
 @pytest.mark.launch_test
 def generate_test_description():
-    """Start the exact final launch with graphical clients disabled for CI."""
+    """Start the canonical final-launch path with graphical clients disabled."""
     share = Path(get_package_share_directory('fusion_bringup'))
     stack = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             str(share / 'launch' / 'final_demo.launch.py')),
-        launch_arguments={'use_rviz': 'false'}.items())
+        launch_arguments={
+            'mission': 'false', 'use_rviz': 'false', 'sim_gui': 'false',
+            'camera_view': 'false'}.items())
     return launch.LaunchDescription([
         stack,
         launch_testing.actions.ReadyToTest(),

@@ -39,11 +39,11 @@ def generate_launch_description():
     }
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true'),
-        DeclareLaunchArgument('gazebo_gui', default_value='false'),
+        DeclareLaunchArgument('sim_gui', default_value='false'),
         DeclareLaunchArgument('use_rviz', default_value='true'),
         DeclareLaunchArgument(
             'map',
-            # Use the geometry-derived map for the deterministic Gazebo demo.
+            # Use the geometry-derived map for the deterministic MuJoCo demo.
             # The captured SLAM map intentionally retains scan shadows and
             # produces the large triangular unknown-space artifacts in RViz.
             default_value=str(share / 'maps' / 'warehouse_map.yaml'),
@@ -53,7 +53,7 @@ def generate_launch_description():
             default_value=str(share / 'config' / 'nav2_stage3_params.yaml'),
         ),
         include('warehouse_simulation', 'warehouse.launch.py', {
-            'gui': LaunchConfiguration('gazebo_gui'),
+            'gui': LaunchConfiguration('sim_gui'),
             'use_sim_time': use_sim_time,
             'use_scenario': 'false',
         }),

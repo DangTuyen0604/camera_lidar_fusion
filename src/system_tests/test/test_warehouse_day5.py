@@ -45,7 +45,7 @@ def test_warehouse_is_event_driven_and_missions_are_contiguous():
         (warehouse / 'config' / 'scenarios.yaml').read_text())['scenarios']['warehouse_demo']
     actions = {item['action'] for item in scenarios}
     assert {'wait_for_robot_region', 'wait_for_mission_state', 'spawn', 'delete',
-            'follow_path', 'attach_cargo', 'detach_cargo'} <= actions
+            'roam'} <= actions
     mission = share('warehouse_mission_manager')
     missions = yaml.safe_load((mission / 'config' / 'missions.yaml').read_text())['missions']
     assert [(item['pickup'], item['destination']) for item in missions] == [

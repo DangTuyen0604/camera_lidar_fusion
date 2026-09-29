@@ -1,4 +1,4 @@
-"""Launch Nav2 with one safety-enforced velocity path to Gazebo."""
+"""Launch Nav2 with one safety-enforced velocity path to the simulator."""
 
 from pathlib import Path
 

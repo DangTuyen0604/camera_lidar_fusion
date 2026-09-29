@@ -1,28 +1,86 @@
 seed: 42
 action_timeout_sec: 10.0
+pedestrian_waypoint_graphs:
+  warehouse_walkways:
+    # Hand-authored from warehouse.sdf and warehouse_map.pgm.  Every edge is
+    # a straight, collision-free walkway; destinations are never sampled from
+    # arbitrary map coordinates.  Crossings at x=-4, 0 and 4 intersect robot
+    # traffic between stations without entering a dock or its approach lane.
+    nodes:
+      south_west: [-8.0, -5.4]
+      south_left: [-4.0, -5.4]
+      south_centre_west: [-1.3, -5.4]
+      south_centre_east: [1.3, -5.4]
+      south_right: [4.0, -5.4]
+      south_east: [8.0, -5.4]
+      middle_west: [-8.0, 0.0]
+      middle_left_crossing: [-4.0, 0.0]
+      middle_centre_west: [-1.3, 0.0]
+      middle_centre: [0.0, 0.0]
+      middle_centre_east: [1.3, 0.0]
+      middle_right_crossing: [4.0, 0.0]
+      middle_east: [8.0, 0.0]
+      left_crossing_south: [-4.0, 2.8]
+      left_crossing_north: [-4.0, 4.6]
+      centre_crossing_south: [0.0, 2.8]
+      centre_crossing_north: [0.0, 3.8]
+      right_crossing_south: [4.0, 2.8]
+      right_crossing_north: [4.0, 4.6]
+      north_west_junction: [-8.0, 4.6]
+      north_west: [-8.0, 5.7]
+      north_left: [-4.0, 5.7]
+      north_centre: [0.0, 5.7]
+      north_right: [4.0, 5.7]
+      north_east: [8.0, 5.7]
+      north_east_junction: [8.0, 4.6]
+    edges:
+      - [south_west, south_left]
+      - [south_left, south_centre_west]
+      - [south_centre_west, south_centre_east]
+      - [south_centre_east, south_right]
+      - [south_right, south_east]
+      - [south_west, middle_west]
+      - [south_left, middle_left_crossing]
+      - [south_centre_west, middle_centre_west]
+      - [south_centre_east, middle_centre_east]
+      - [south_east, middle_east]
+      - [middle_west, middle_left_crossing]
+      - [middle_left_crossing, middle_centre_west]
+      - [middle_centre_west, middle_centre]
+      - [middle_centre, middle_centre_east]
+      - [middle_centre_east, middle_right_crossing]
+      - [middle_right_crossing, middle_east]
+      - [middle_left_crossing, left_crossing_south]
+      - [left_crossing_south, left_crossing_north]
+      - [middle_centre, centre_crossing_south]
+      - [centre_crossing_south, centre_crossing_north]
+      - [right_crossing_south, right_crossing_north]
+      - [middle_west, north_west_junction]
+      - [north_west_junction, left_crossing_north]
+      - [north_west_junction, north_west]
+      - [left_crossing_north, north_left]
+      - [north_west, north_left]
+      - [north_left, north_centre]
+      - [north_centre, north_right]
+      - [north_right, north_east]
+      - [right_crossing_north, north_right]
+      - [right_crossing_north, north_east_junction]
+      - [north_east_junction, north_east]
+      - [north_east_junction, middle_east]
 scenarios:
   warehouse_demo:
-    # Both workers are persistent dynamic obstacles.  Their closed patrols
-    # continue for the whole simulation instead of disappearing at the end of
-    # the cargo scenario.
-    #
-    # Worker 1 crosses the S1 <-> S2 transfer route at x=-4.  The short
-    # rectangular patrol makes it cross the robot lane in both directions.
-    - {action: spawn, name: crossing_worker, model: worker, pose: [-4.2, 2.5, 0.0, 0.0]}
-    - {action: follow_path, name: crossing_worker, speed: 0.75, loop: true, path: [[-4.2, 2.5], [-4.2, 4.6], [-3.8, 4.6], [-3.8, 2.5], [-4.2, 2.5]]}
-    # Worker 2 crosses the S3 <-> S4 transfer route at x=4.  Starting at the
-    # opposite end keeps both people visible and out of phase.
-    - {action: spawn, name: station_worker, model: worker, pose: [4.2, 4.6, 0.0, 0.0]}
-    - {action: follow_path, name: station_worker, speed: 0.75, loop: true, path: [[4.2, 4.6], [4.2, 2.5], [3.8, 2.5], [3.8, 4.6], [4.2, 4.6]]}
+    # Each worker owns an independent seeded random walk on the safe graph.
+    - {action: spawn, name: crossing_worker, model: worker, pose: [-4.0, 2.8, 0.0, 0.0]}
+    - {action: roam, name: crossing_worker, graph: warehouse_walkways, speed_range: [0.4, 0.8], pause_range: [0.5, 2.0]}
+    - {action: spawn, name: station_worker, model: worker, pose: [4.0, 4.6, 0.0, 0.0]}
+    - {action: roam, name: station_worker, graph: warehouse_walkways, speed_range: [0.4, 0.8], pause_range: [0.5, 2.0]}
     - {action: wait_for_robot_region, region: aisle_a}
     - {action: spawn, name: blocking_pallet, model: pallet, pose: [-4.0, 0.0, 0.10, 0.0]}
+    # M02 (S2 -> S3) plans around the north side of the S3 station through
+    # (1.4, 4.6). Drop a box onto that lane once the robot is committed to it
+    # so Nav2 must replan (south of S3, or wider to the north).
     - {action: wait_for_robot_region, region: assembly_exit}
-    - {action: spawn, name: fallen_box, model: cargo_box, pose: [1.5, 2.0, 0.25, 0.2]}
-    - {action: wait_for_mission_state, state: WAIT_FOR_LOADING}
-    - {action: spawn, name: mission_cargo, model: cargo_box, pose: [0.0, 0.0, 0.25, 0.0]}
-    - {action: attach_cargo, name: mission_cargo}
-    - {action: wait_for_mission_state, state: DOCKED}
-    - {action: detach_cargo, name: mission_cargo}
-    - {action: delete, name: mission_cargo}
+    - {action: spawn, name: fallen_box, model: cargo_box, pose: [1.3, 4.5, 0.25, 0.2]}
+    - {action: wait_for_mission_state, state: UNLOADING}
     - {action: delete, name: blocking_pallet}
     - {action: delete, name: fallen_box}

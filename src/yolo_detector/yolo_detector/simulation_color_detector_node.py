@@ -1,4 +1,4 @@
-"""Detect the orange simulated worker from live Gazebo camera frames."""
+"""Detect the orange simulated worker from live simulated camera frames."""
 
 import time
 

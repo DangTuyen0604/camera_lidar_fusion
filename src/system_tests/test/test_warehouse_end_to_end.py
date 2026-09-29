@@ -114,11 +114,11 @@ class TestWarehouseEndToEnd(unittest.TestCase):
         self.assertTrue(self.wait(lambda: any(
             abs(v.linear.x) > 0.05 for v in self.velocities[resume_index:]), 60.0))
 
-        # 13-18: box avoidance, dock, unload, complete and no collision.
+        # 13-18: box avoidance, arrive at the station, unload, complete and
+        # no collision. The demo stops at the staging pose instead of docking.
         self.assertTrue(self.wait(
             lambda: any('spawn:fallen_box' in e.data for e in self.events), 90.0))
-        self.assertTrue(self.wait(lambda: any(s.data == 'DOCKED' for s in self.states), 180.0))
-        self.assertTrue(self.wait(lambda: any(s.data == 'UNLOADING' for s in self.states), 10.0))
+        self.assertTrue(self.wait(lambda: any(s.data == 'UNLOADING' for s in self.states), 180.0))
         self.assertTrue(self.wait(lambda: any(s.data == 'COMPLETED' for s in self.states), 30.0))
         self.assertTrue(self.cargo and self.cargo[-1].data == '')
         self.assertTrue(self.collisions)

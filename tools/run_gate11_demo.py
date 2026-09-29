@@ -84,9 +84,9 @@ class Gate11Probe(Node):
         self._gate_subscriptions.append(self.create_subscription(
             Odometry, '/odom', self._odom, 20))
         self.spawn_client = self.create_client(
-            SpawnEntity, '/gzserver/spawn_entity')
+            SpawnEntity, '/mujoco/spawn_entity')
         self.delete_client = self.create_client(
-            DeleteEntity, '/gzserver/delete_entity')
+            DeleteEntity, '/mujoco/delete_entity')
         self.navigation = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.minimum_clearance = math.inf
 
@@ -169,7 +169,7 @@ class Gate11Probe(Node):
         request.initial_pose.pose.position.x = 1.2
         request.initial_pose.pose.position.y = -4.0
         request.initial_pose.pose.orientation.w = 1.0
-        # Start the latency clock before the service call: Gazebo may publish
+        # Start the latency clock before the service call: the simulator may publish
         # the new entity to sensors before its response reaches this node.
         self.worker_spawned_at = time.monotonic()
         response = self.call(self.spawn_client, request)

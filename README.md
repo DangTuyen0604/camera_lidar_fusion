@@ -8,7 +8,7 @@
 ROS 2 project for an autonomous mobile robot (AMR) that combines camera
 detections with LiDAR depth, transforms fused XYZ detections with TF2, and
 publishes expiring obstacles to Nav2 costmaps and Collision Monitor. The
-canonical demo runs the complete chain in Gazebo; KITTI playback is available
+canonical demo runs the complete chain in a MuJoCo warehouse simulation; KITTI playback is available
 for offline calibration, projection, and perception experiments.
 
 The consolidated verification summary is in
@@ -30,8 +30,7 @@ flowchart TD
     Bridge --> Nav2[Nav2 costmaps + Collision Monitor]
     Nav2 --> AMR[AMR]
 
-    Gazebo --> RosGz[ros_gz_bridge]
-    RosGz --> Runtime[clock / odom / tf / scan / camera / point cloud]
+    MuJoCo[MuJoCo warehouse_mujoco] --> Runtime[clock / odom / tf / scan / camera / point cloud]
     Runtime --> Nav2
     Runtime --> RViz[RViz]
 ```
@@ -39,7 +38,7 @@ flowchart TD
 The safety command chain is:
 
 `controller_server -> /cmd_vel_nav -> velocity_smoother ->
-/cmd_vel_smoothed -> collision_monitor -> /cmd_vel -> ros_gz_bridge -> Gazebo`
+/cmd_vel_smoothed -> collision_monitor -> /cmd_vel -> MuJoCo`
 
 ## 3. Package structure
 
@@ -52,7 +51,7 @@ The safety command chain is:
 | `navigation_bridge` | Validation, TF2 transform, obstacle footprint, timeout, and clearing |
 | `navigation_bringup` | Localization, Nav2, costmaps, velocity smoother, Collision Monitor, RViz |
 | `openamrobot_description` | Robot URDF/Xacro and TF links |
-| `openamrobot_gazebo` | Gazebo robot spawn and ROS–Gazebo bridges |
+| `warehouse_mujoco` | MuJoCo physics, robot model, sensors and entity services |
 | `warehouse_simulation` | Canonical warehouse world and simulated objects |
 | `warehouse_mission_manager` | Warehouse mission utilities |
 | `fusion_bringup` | Top-level perception and final demo launch files |
@@ -63,7 +62,8 @@ The safety command chain is:
 
 - Ubuntu 24.04 (Noble), x86-64
 - ROS 2 Jazzy Desktop
-- Gazebo Harmonic through `ros_gz`
+- MuJoCo 3.x (`pip install --user --break-system-packages mujoco`; installed by
+  `scripts/install_dependencies.sh`)
 - Nav2, Collision Monitor, laser filters, TF2, OpenCV, Eigen, and yaml-cpp
 - Python 3.12; the optional ONNX/KITTI tools use `requirements.txt`
 
@@ -106,28 +106,34 @@ source install/setup.bash
 ros2 launch fusion_bringup final_demo.launch.py
 ```
 
-This starts Gazebo, the robot, bridges, localization, Nav2, camera, LiDAR,
-detector, fusion, obstacle bridge, metrics, and RViz. To open both Gazebo and
-RViz explicitly:
+This runs the robot's whole working process: the MuJoCo viewer, RViz, a live
+camera window, camera-LiDAR detection and fusion, localization, Nav2 with
+docking, and the M01-M04 warehouse missions started automatically.
+
+In the camera window (`camera_viewer`), press `s` to save the raw frame as PNG
+to `~/camera_dataset` (`camera_save_dir:=...`) for detector training, `d` to
+toggle detection boxes and `q` to close it. Show the fused overlay instead
+with `camera_topic:=/fusion/annotated_image`.
+
+The canonical single-goal benchmark path (no missions or scenario actors) is:
 
 ```bash
-ros2 launch fusion_bringup final_demo.launch.py \
-  use_rviz:=true gazebo_gui:=true
+ros2 launch fusion_bringup final_demo.launch.py mission:=false
 ```
 
 For CI/headless systems:
 
 ```bash
-ros2 launch fusion_bringup final_demo.launch.py \
-  use_rviz:=false gazebo_gui:=false
+MUJOCO_GL=egl ros2 launch fusion_bringup final_demo.launch.py \
+  mission:=false use_rviz:=false sim_gui:=false camera_view:=false
 ```
 
 Run the integrated warehouse mission (M01-M04) with live camera-LiDAR fusion,
-Gazebo and RViz:
+the MuJoCo viewer and RViz:
 
 ```bash
 ros2 launch fusion_bringup bringup_sim.launch.py \
-  gazebo_gui:=true use_rviz:=true mission_autostart:=true
+  sim_gui:=true use_rviz:=true mission_autostart:=true
 ```
 
 In this launch, the scenario runner creates and moves physical warehouse
@@ -153,9 +159,9 @@ Canonical simulation interfaces:
 
 | Topic | Type | Purpose |
 |---|---|---|
-| `/camera/image_raw` | `sensor_msgs/msg/Image` | Gazebo camera image |
+| `/camera/image_raw` | `sensor_msgs/msg/Image` | Simulated camera image |
 | `/camera/camera_info` | `sensor_msgs/msg/CameraInfo` | Camera calibration |
-| `/lidar/points` | `sensor_msgs/msg/PointCloud2` | Gazebo LiDAR cloud |
+| `/lidar/points` | `sensor_msgs/msg/PointCloud2` | Simulated LiDAR cloud |
 | `/fusion/synced/*` | Image, CameraInfo, PointCloud2 | Time-aligned sensor inputs |
 | `/detections_2d` | `fusion_interfaces/msg/Detection2DArray` | Image detections |
 | `/fusion/detections_3d` | `fusion_interfaces/msg/FusedDetectionArray` | Valid/invalid fused XYZ results |
@@ -167,7 +173,7 @@ Canonical simulation interfaces:
 | `/odom`, `/tf`, `/tf_static`, `/clock` | Standard ROS messages | Localization and simulation time |
 | `/cmd_vel_nav` | `geometry_msgs/msg/Twist` | Controller output |
 | `/cmd_vel_smoothed` | `geometry_msgs/msg/Twist` | Velocity smoother output |
-| `/cmd_vel` | `geometry_msgs/msg/Twist` | Collision-checked command sent to Gazebo |
+| `/cmd_vel` | `geometry_msgs/msg/Twist` | Collision-checked command sent to the simulator |
 
 Inspect the live contract with `ros2 topic list -t` and
 `ros2 topic info <topic> --verbose`.
@@ -276,7 +282,7 @@ outputs and metrics rather than source-text assertions.
   360-degree coverage requires a higher physical mount and new TF/extrinsic
   calibration; disabling the filter at the current height is unsafe.
 - The simulation detector is color-based and exists only for deterministic
-  Gazebo testing; real images require the ONNX detector and a compatible model.
+  simulation testing; real images require the ONNX detector and a compatible model.
 - KITTI tests require the separately downloaded dataset; they skip otherwise.
 - Calibration is static during a run. The monitor reports degradation but does
   not perform online extrinsic recalibration.

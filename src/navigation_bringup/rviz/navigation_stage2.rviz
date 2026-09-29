@@ -98,8 +98,8 @@ Visualization Manager:
       Class: rviz_default_plugins/Path
       Color: 0; 190; 255
       Enabled: true
-      Line Style: Lines
-      Line Width: 0.04
+      Line Style: Billboards
+      Line Width: 0.06
       Name: Global Plan
       Pose Style: None
       Topic:

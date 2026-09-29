@@ -1,6 +1,8 @@
+# Dock poses stop the robot front ~0.30 m short of the station block
+# (centre 0.62 m from its face), so the camera never enters the block.
 stations:
   HOME: {x: 0.0, y: -4.0, yaw: 1.57}
-  S1_STORAGE: {x: -6.0, y: 3.5, yaw: 0.0}
-  S2_ASSEMBLY: {x: -2.0, y: 3.5, yaw: 0.0}
-  S3_INSPECTION: {x: 2.0, y: 3.5, yaw: 3.14}
-  S4_PACKAGING: {x: 6.0, y: 3.5, yaw: 3.14}
+  S1_STORAGE: {x: -6.27, y: 3.5, yaw: 0.0}
+  S2_ASSEMBLY: {x: -2.27, y: 3.5, yaw: 0.0}
+  S3_INSPECTION: {x: 2.27, y: 3.5, yaw: 3.14}
+  S4_PACKAGING: {x: 6.27, y: 3.5, yaw: 3.14}
