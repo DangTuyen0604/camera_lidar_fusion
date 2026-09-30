@@ -10,7 +10,15 @@ def test_bridge_filters_and_costmaps_consume_obstacles():
     for config in ('nav2_params.yaml', 'nav2_stage3_params.yaml'):
         params = yaml_asset('navigation_bringup', f'config/{config}')
         for name in ('local_costmap', 'global_costmap'):
-            layer = params[name][name]['ros__parameters']['obstacle_layer']
+            costmap = params[name][name]['ros__parameters']
+            if 'detection_layer' in costmap['plugins']:
+                # Mission stack: detections expire in a decaying voxel layer.
+                layer = costmap['detection_layer']
+                source = layer[layer['observation_sources']]
+                assert source['topic'] == '/navigation/detection_obstacles'
+                assert source['marking'] is True
+                continue
+            layer = costmap['obstacle_layer']
             assert layer['detection_obstacles']['topic'] == (
                 '/navigation/detection_obstacles')
             assert layer['detection_obstacles']['marking'] is True

@@ -50,6 +50,12 @@ class ScenarioRunner(Node):
         self.pending = None
         self.robot_xy = None
         self.robot_yaw = 0.0
+        # Simulator ground truth of the robot, when warehouse_mujoco provides
+        # it. Scenario physics (worker avoidance, spawns, carried cargo) must
+        # follow the real robot, not AMCL: a few cm of AMCL error let a
+        # kinematic worker walk into the robot, the shove broke wheel
+        # odometry, and AMCL then diverged by metres.
+        self.has_ground_truth = False
         self.map_offset = (
             float(self.declare_parameter('map_offset_x', 0.0).value),
             float(self.declare_parameter('map_offset_y', -4.0).value))
@@ -63,6 +69,9 @@ class ScenarioRunner(Node):
             'worker_clearance', 0.80).value)
         self.robot_clearance = float(self.declare_parameter(
             'robot_clearance', 0.65).value)
+        # Kinematic entities cannot be pushed; never spawn one onto the robot.
+        self.spawn_clearance = float(self.declare_parameter(
+            'spawn_clearance', 1.0).value)
         self.update_period = float(self.declare_parameter(
             'update_period_sec', 0.20).value)
         if not 0.05 <= self.update_period <= 0.50:
@@ -95,6 +104,8 @@ class ScenarioRunner(Node):
         self.collision_publisher = self.create_publisher(
             UInt64, '/benchmark/collision_count', 10)
         self.create_subscription(Odometry, '/odom', self._odom, 10)
+        self.create_subscription(
+            Odometry, '/ground_truth/odom', self._ground_truth, 10)
         self.create_subscription(String, '/mission/state', self._state, 10)
         self.create_timer(self.update_period, self._tick)
         self.create_timer(self.update_period, self._publish_detections)
@@ -138,7 +149,18 @@ class ScenarioRunner(Node):
                 f'Workers have multiple motion actions: {duplicate_motion}')
         return frozenset(names)
 
+    def _ground_truth(self, msg):
+        # The static map is rasterized from the same world, so world == map.
+        self.has_ground_truth = True
+        self.robot_xy = (msg.pose.pose.position.x, msg.pose.pose.position.y)
+        q = msg.pose.pose.orientation
+        self.robot_yaw = math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
     def _odom(self, msg):
+        if self.has_ground_truth:
+            return
         pose = PoseStamped()
         pose.header = msg.header
         pose.header.frame_id = msg.header.frame_id or 'odom'
@@ -471,6 +493,10 @@ class ScenarioRunner(Node):
                 self.index += 1
         elif kind == 'spawn':
             model = action['model']
+            if (model != 'worker' and self.robot_xy and math.hypot(
+                    action['pose'][0] - self.robot_xy[0],
+                    action['pose'][1] - self.robot_xy[1]) < self.spawn_clearance):
+                return
             request = SpawnEntity.Request()
             request.name = action['name']
             request.allow_renaming = False

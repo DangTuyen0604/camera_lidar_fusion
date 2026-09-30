@@ -1,6 +1,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <string>
@@ -43,7 +44,10 @@ public:
     future_tolerance_ = declare_parameter<double>("future_tolerance", 0.10);
     obstacle_timeout_ = declare_parameter<double>("obstacle_timeout", 0.75);
     tf_timeout_ = declare_parameter<double>("tf_timeout", 0.10);
-    if (target_frame_.empty() || stale_timeout_ <= 0.0 || future_tolerance_ < 0.0 ||
+    fixed_frame_ = declare_parameter<std::string>("fixed_frame", "odom");
+    clearing_history_ = declare_parameter<double>("clearing_history", 1.0);
+    if (target_frame_.empty() || fixed_frame_.empty() || clearing_history_ < 0.0 ||
+      stale_timeout_ <= 0.0 || future_tolerance_ < 0.0 ||
       obstacle_timeout_ <= 0.0 || tf_timeout_ < 0.0)
     {
       throw std::invalid_argument("Invalid frame or timeout parameter");
@@ -181,34 +185,59 @@ private:
     }
 
     // A moving worker must not leave a trail of stale marks from A to B.
-    // Clear where the previous batch marked before marking the new batch;
+    // Clear where the recent batches marked before marking the new batch;
     // the costmap applies clearing before marking in the same update.
-    publishClearing();
+    publishClearing(stamp);
     publisher_->publish(makeCloud(transformed, stamp));
-    last_points_ = std::move(transformed);
-    last_points_stamp_ = stamp;
+    history_.push_back({stamp, std::move(transformed)});
     last_observation_ = now();
     has_observation_ = true;
     clearing_sent_ = false;
     last_status_ = "OK";
   }
 
-  // Raytrace slightly beyond every previously marked point so the costmap
-  // frees those cells, then forget them. The points are in target_frame at
-  // their own capture time; keep that stamp so the costmap's TF lookup puts
-  // the clearing rays where the marks are, even while the robot moves.
-  void publishClearing()
+  // Raytrace slightly beyond every point marked during the last
+  // clearing_history seconds so the costmap frees those cells. The costmap
+  // keeps only the newest clearing cloud, and a 2 Hz global costmap skips
+  // most batches, so clearing only the previous batch leaves a trail of every
+  // skipped batch's marks. Each batch is in target_frame at its own capture
+  // time; move it through fixed_frame into target_frame at `stamp` so the
+  // rays land on the marks while the robot drives.
+  void publishClearing(const rclcpp::Time & stamp)
   {
-    if (last_points_.empty()) {
-      return;
+    while (!history_.empty() &&
+      (stamp - history_.front().stamp).seconds() > clearing_history_)
+    {
+      history_.pop_front();
     }
     std::vector<ObstaclePoint> rays;
-    rays.reserve(last_points_.size());
-    for (const auto & p : last_points_) {
-      rays.push_back({p.x * 1.05F, p.y * 1.05F, p.z});
+    for (const auto & batch : history_) {
+      tf2::Transform motion;
+      motion.setIdentity();
+      if (batch.stamp != stamp) {
+        try {
+          tf2::fromMsg(
+            tf_buffer_.lookupTransform(
+              target_frame_, stamp, target_frame_, batch.stamp, fixed_frame_,
+              rclcpp::Duration::from_seconds(tf_timeout_)).transform, motion);
+        } catch (const tf2::TransformException & error) {
+          // Without odometry, clear where the points were in the robot frame.
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 5000,
+            "Clearing without robot motion compensation: %s", error.what());
+        }
+      }
+      for (const auto & p : batch.points) {
+        const auto q = motion * tf2::Vector3(p.x, p.y, p.z);
+        rays.push_back({
+            static_cast<float>(q.x() * 1.05), static_cast<float>(q.y() * 1.05),
+            static_cast<float>(q.z())});
+      }
     }
-    clearing_publisher_->publish(makeCloud(rays, last_points_stamp_));
-    last_points_.clear();
+    if (rays.empty()) {
+      return;
+    }
+    clearing_publisher_->publish(makeCloud(rays, stamp));
     ++clearing_publications_;
   }
 
@@ -225,7 +254,10 @@ private:
       return;
     }
     if (!clearing_sent_) {
-      publishClearing();
+      if (!history_.empty()) {
+        publishClearing(history_.back().stamp);
+      }
+      history_.clear();
       clearing_sent_ = true;
       last_status_ = "Obstacle timeout: clearing published";
     }
@@ -268,6 +300,8 @@ private:
   double future_tolerance_{0.1};
   double obstacle_timeout_{0.75};
   double tf_timeout_{0.1};
+  std::string fixed_frame_;
+  double clearing_history_{1.0};
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   RejectionCounters counters_;
@@ -283,8 +317,12 @@ private:
   rclcpp::Time last_observation_{0, 0, RCL_ROS_TIME};
   bool has_observation_{false};
   bool clearing_sent_{false};
-  std::vector<ObstaclePoint> last_points_;
-  rclcpp::Time last_points_stamp_{0, 0, RCL_ROS_TIME};
+  struct Batch
+  {
+    rclcpp::Time stamp;
+    std::vector<ObstaclePoint> points;
+  };
+  std::deque<Batch> history_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr clearing_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;

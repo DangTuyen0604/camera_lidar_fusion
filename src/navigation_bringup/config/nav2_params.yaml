@@ -152,50 +152,79 @@ local_costmap:
       height: 10
       resolution: 0.05
       robot_radius: 0.32
-      plugins: ["obstacle_layer", "inflation_layer"]
+      plugins: ["obstacle_layer", "detection_layer", "inflation_layer"]
+      # The LiDAR marks into a decaying voxel layer instead of Nav2's
+      # raytrace-cleared ObstacleLayer. With the robot standing still (docked,
+      # at a staging pose, turning in place) every beam keeps the same angle,
+      # and the Bresenham line of a beam that later reaches the wall does not
+      # pass through the cell where the same beam hit a passing worker, so
+      # that cell was never cleared: workers left permanent trails until the
+      # robot drove off. Every return is re-marked at 10 Hz, so walls and
+      # present obstacles stay solid while anything no longer seen expires.
       obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        observation_sources: scan detection_obstacles detection_clearing
+        plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
+        enabled: true
+        voxel_decay: 0.5
+        decay_model: 0
+        voxel_size: 0.05
+        track_unknown_space: false
+        mark_threshold: 0
+        update_footprint_enabled: true
+        combination_method: 1
+        origin_z: 0.0
+        publish_voxel_map: false
+        transform_tolerance: 0.2
+        mapping_mode: false
+        observation_sources: scan
         scan:
           topic: /scan_filtered
           data_type: LaserScan
-          # Beams with no return within 10 m are inf. Nav2 drops them unless
-          # inf_is_valid, and then nothing along that beam is ever cleared:
-          # workers and removed boxes leave permanent ghost trails.
-          inf_is_valid: true
-          # Per-source heights default to 0.0 in Nav2, which would drop
-          # every return of the 0.41 m high LiDAR.
+          marking: true
+          clearing: false
+          # The controller looks <1 m ahead; far marks only add smear from
+          # heading error during turns.
+          obstacle_range: 3.5
           min_obstacle_height: 0.0
           max_obstacle_height: 2.0
-          clearing: true
-          marking: true
-          # Mark only what the controller needs (it looks <1 m ahead). A 1 deg
-          # heading error during a turn shifts a wall 9 m away by 15 cm, which
-          # left arcs of stale marks; clearing still raytraces the full 10 m.
-          obstacle_max_range: 3.5
-          raytrace_max_range: 10.0
-        detection_obstacles:
+          expected_update_rate: 0.0
+          observation_persistence: 0.0
+          inf_is_valid: false
+          filter: "none"
+          voxel_min_points: 0
+          clear_after_reading: true
+      # Camera-LiDAR detections live in their own layer whose cells expire
+      # 0.5 s after the last detection. Raytrace clearing in the obstacle
+      # layer depended on every clearing message landing in time; one missed
+      # batch left a whole 0.6 m worker footprint behind as a ghost. Detections arrive at ~12 Hz (p90 gap 0.25 s).
+      detection_layer:
+        plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
+        enabled: true
+        voxel_decay: 0.5
+        decay_model: 0
+        voxel_size: 0.05
+        track_unknown_space: false
+        mark_threshold: 0
+        update_footprint_enabled: false
+        combination_method: 1
+        origin_z: 0.0
+        publish_voxel_map: false
+        transform_tolerance: 0.2
+        mapping_mode: false
+        observation_sources: detections
+        detections:
           topic: /navigation/detection_obstacles
           data_type: PointCloud2
-          clearing: false
           marking: true
+          clearing: false
+          obstacle_range: 30.0
           min_obstacle_height: 0.05
           max_obstacle_height: 2.0
-          obstacle_max_range: 30.0
-          # The global costmap updates at 2 Hz. Retain a detection for one
-          # update interval so a 5-10 Hz perception stream cannot fall between
-          # costmap cycles and leave the planner unaware of the obstacle.
-          observation_persistence: 0.5
-        detection_clearing:
-          topic: /navigation/detection_obstacles/clearing
-          data_type: PointCloud2
-          clearing: true
-          marking: false
-          raytrace_max_range: 31.0
-          # The bridge clears each detection batch's previous marks. Keep
-          # those clearings for one update so a costmap cycle slower than
-          # the detection rate still frees every stale cell (no worker trail).
-          observation_persistence: 0.5
+          expected_update_rate: 0.0
+          observation_persistence: 0.0
+          inf_is_valid: false
+          filter: "none"
+          voxel_min_points: 0
+          clear_after_reading: true
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         inflation_radius: 0.55
@@ -212,13 +241,13 @@ global_costmap:
       resolution: 0.05
       track_unknown_space: true
       robot_radius: 0.32
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      plugins: ["static_layer", "obstacle_layer", "detection_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
-        observation_sources: scan detection_obstacles detection_clearing
+        observation_sources: scan
         scan:
           topic: /scan_filtered
           data_type: LaserScan
@@ -232,25 +261,39 @@ global_costmap:
           # obstacles, so far marks only add heading-error smear.
           obstacle_max_range: 5.0
           raytrace_max_range: 10.0
-        detection_obstacles:
+      # Camera-LiDAR detections live in their own layer whose cells expire
+      # 1.0 s after the last detection. Raytrace clearing in the obstacle
+      # layer depended on every clearing message landing in time; one missed
+      # batch left a whole 0.6 m worker footprint behind as a ghost. The planner map updates at 2 Hz, so keep marks for two cycles.
+      detection_layer:
+        plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
+        enabled: true
+        voxel_decay: 1.0
+        decay_model: 0
+        voxel_size: 0.05
+        track_unknown_space: false
+        mark_threshold: 0
+        update_footprint_enabled: false
+        combination_method: 1
+        origin_z: 0.0
+        publish_voxel_map: false
+        transform_tolerance: 0.2
+        mapping_mode: false
+        observation_sources: detections
+        detections:
           topic: /navigation/detection_obstacles
           data_type: PointCloud2
-          clearing: false
           marking: true
+          clearing: false
+          obstacle_range: 30.0
           min_obstacle_height: 0.05
           max_obstacle_height: 2.0
-          obstacle_max_range: 30.0
-          observation_persistence: 0.5
-        detection_clearing:
-          topic: /navigation/detection_obstacles/clearing
-          data_type: PointCloud2
-          clearing: true
-          marking: false
-          raytrace_max_range: 31.0
-          # The bridge clears each detection batch's previous marks. Keep
-          # those clearings for one update so a costmap cycle slower than
-          # the detection rate still frees every stale cell (no worker trail).
-          observation_persistence: 0.5
+          expected_update_rate: 0.0
+          observation_persistence: 0.0
+          inf_is_valid: false
+          filter: "none"
+          voxel_min_points: 0
+          clear_after_reading: true
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         inflation_radius: 0.55

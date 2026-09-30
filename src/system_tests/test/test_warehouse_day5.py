@@ -30,9 +30,11 @@ def test_nav2_has_both_obstacle_sources_and_all_servers():
                    'velocity_smoother', 'collision_monitor', 'docking_server'):
         assert server in params
     for costmap in ('local_costmap', 'global_costmap'):
-        sources = params[costmap][costmap]['ros__parameters']['obstacle_layer']
-        assert 'scan' in sources and 'detection_obstacles' in sources
-        assert sources['detection_clearing']['clearing'] is True
+        costmap_params = params[costmap][costmap]['ros__parameters']
+        assert 'scan' in costmap_params['obstacle_layer']
+        detections = costmap_params['detection_layer']
+        assert detections[detections['observation_sources']]['topic'] == (
+            '/navigation/detection_obstacles')
     for launch_file in ('mapping.launch.py', 'localization.launch.py',
                         'navigation.launch.py', 'simulation.launch.py',
                         'full_system.launch.py', 'warehouse_full_demo.launch.py'):

@@ -134,17 +134,62 @@ def test_controller_can_turn_onto_replanned_path():
     assert progress['movement_time_allowance'] >= 30.0
 
 
-def test_detection_observations_survive_a_global_costmap_cycle():
-    """Dynamic obstacles must still exist when the 2 Hz planner map updates."""
-    config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+def test_detection_observations_do_not_leave_trails():
+    """Moving workers must not leave stale marks in either costmap.
+
+    Nav2 keeps the newest observation until it is replaced when persistence
+    is 0, so the 2 Hz planner map still sees every obstacle. A persistence
+    window instead re-marks old batches after the bridge's clearing rays ran.
+    """
+    config = yaml_asset('navigation_bringup', 'config/nav2_stage3_params.yaml')
     for name in ('local_costmap', 'global_costmap'):
         parameters = config[name][name]['ros__parameters']
-        source = parameters['obstacle_layer']['detection_obstacles']
-        assert source['observation_persistence'] >= (
-            1.0 / parameters['update_frequency'])
+        layer = parameters['obstacle_layer']
+        source = layer['detection_obstacles']
+        assert source['observation_persistence'] == 0.0
+        clearing = layer['detection_clearing']
+        assert clearing.get('observation_persistence', 0.0) == 0.0
+        # Nav2's per-source max_obstacle_height default (0.0) drops
+        # every clearing point of a box or pallet above the floor.
+        assert clearing['min_obstacle_height'] <= 0.0
+        assert clearing['max_obstacle_height'] >= source['max_obstacle_height']
         assert source['min_obstacle_height'] <= 0.05
         assert source['max_obstacle_height'] >= 2.0
+
+
+def test_mission_detections_expire_instead_of_waiting_for_clearing():
+    """The mission stack marks detections in a decaying voxel layer.
+
+    Every cell expires shortly after its last detection, so a worker cannot
+    leave a footprint behind when one clearing batch is missed.
+    """
+    config = yaml_asset('navigation_bringup', 'config/nav2_params.yaml')
+    for name in ('local_costmap', 'global_costmap'):
+        parameters = config[name][name]['ros__parameters']
+        plugins = parameters['plugins']
+        assert plugins.index('detection_layer') < plugins.index('inflation_layer')
+        assert parameters['obstacle_layer']['observation_sources'] == 'scan'
+        layer = parameters['detection_layer']
+        assert layer['plugin'] == (
+            'spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer')
+        assert layer['decay_model'] == 0
+        # Long enough to survive one planner cycle, short enough that a
+        # walking worker leaves at most a short, self-clearing tail.
+        assert 1.0 / parameters['update_frequency'] <= layer['voxel_decay'] <= 1.0
+        source = layer[layer['observation_sources']]
+        assert source['topic'] == '/navigation/detection_obstacles'
+        assert source['marking'] is True and source['clearing'] is False
+        assert source['min_obstacle_height'] <= 0.05
+        assert source['max_obstacle_height'] >= 2.0
+        assert source['obstacle_range'] >= 30.0
+    # A stationary robot's fixed beam angles cannot raytrace-clear every cell
+    # a passing worker was marked in, so local LiDAR marks must expire too.
+    local = config['local_costmap']['local_costmap']['ros__parameters']
+    scan_layer = local['obstacle_layer']
+    assert scan_layer['plugin'] == (
+        'spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer')
+    assert 0.0 < scan_layer['voxel_decay'] <= 1.0
+    assert scan_layer['scan']['topic'] == '/scan_filtered'
 
 
 def test_navigation_consumers_share_the_filtered_lidar():

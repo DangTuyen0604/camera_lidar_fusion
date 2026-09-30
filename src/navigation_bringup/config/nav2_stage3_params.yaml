@@ -184,12 +184,20 @@ local_costmap:
           min_obstacle_height: 0.05
           max_obstacle_height: 2.0
           obstacle_max_range: 30.0
-          observation_persistence: 0.5
+          # Keep only the newest batch (it stays applied until replaced, so a
+          # 2 Hz costmap still sees it). A persistence window re-marks old
+          # batches after their clearing rays ran and leaves worker trails.
+          observation_persistence: 0.0
         detection_clearing:
           topic: /navigation/detection_obstacles/clearing
           data_type: PointCloud2
           clearing: true
           marking: false
+          # Nav2 defaults a source to max_obstacle_height 0.0 and drops
+          # every clearing point above the floor, so a deleted box or
+          # pallet (centre z 0.10-0.25 m) stayed in the costmap forever.
+          min_obstacle_height: -1.0
+          max_obstacle_height: 2.0
           raytrace_max_range: 31.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -229,12 +237,20 @@ global_costmap:
           min_obstacle_height: 0.05
           max_obstacle_height: 2.0
           obstacle_max_range: 30.0
-          observation_persistence: 0.5
+          # Keep only the newest batch (it stays applied until replaced, so a
+          # 2 Hz costmap still sees it). A persistence window re-marks old
+          # batches after their clearing rays ran and leaves worker trails.
+          observation_persistence: 0.0
         detection_clearing:
           topic: /navigation/detection_obstacles/clearing
           data_type: PointCloud2
           clearing: true
           marking: false
+          # Nav2 defaults a source to max_obstacle_height 0.0 and drops
+          # every clearing point above the floor, so a deleted box or
+          # pallet (centre z 0.10-0.25 m) stayed in the costmap forever.
+          min_obstacle_height: -1.0
+          max_obstacle_height: 2.0
           raytrace_max_range: 31.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"

@@ -47,7 +47,11 @@ def generate_launch_description():
              name='behavior_server', output='screen', parameters=common,
              remappings=[('cmd_vel', 'cmd_vel_nav')]),
         Node(package='nav2_bt_navigator', executable='bt_navigator',
-             name='bt_navigator', output='screen', parameters=common),
+             name='bt_navigator', output='screen',
+             parameters=common + [{
+                 'default_nav_to_pose_bt_xml': str(
+                     share / 'config' / 'navigate_to_pose_replan_if_invalid.xml'),
+             }]),
         Node(package='nav2_waypoint_follower', executable='waypoint_follower',
              name='waypoint_follower', output='screen', parameters=common),
         Node(package='nav2_velocity_smoother', executable='velocity_smoother',
