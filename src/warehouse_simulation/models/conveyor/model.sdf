@@ -3,10 +3,18 @@
   <model name="conveyor">
     <static>true</static>
     <link name="link">
-      <collision name="collision">
-        <pose>0 0 0.5 0 0 0</pose>
-        <geometry><box><size>3.0 0.8 1.0</size></box></geometry>
+      <!-- Legs plus the raised belt frame, not one solid block: the LiDAR
+           ray-casts collisions, and at its scan height (~0.45 m) a real
+           conveyor only shows its legs.  The map still projects the full
+           3.0 x 0.8 m footprint because the belt frame covers it. -->
+      <collision name="collision_belt">
+        <pose>0 0 0.82 0 0 0</pose>
+        <geometry><box><size>3.0 0.8 0.36</size></box></geometry>
       </collision>
+      <collision name="collision_leg_1"><pose>-1.2 -0.28 0.38 0 0 0</pose><geometry><box><size>0.12 0.12 0.76</size></box></geometry></collision>
+      <collision name="collision_leg_2"><pose>-1.2 0.28 0.38 0 0 0</pose><geometry><box><size>0.12 0.12 0.76</size></box></geometry></collision>
+      <collision name="collision_leg_3"><pose>1.2 -0.28 0.38 0 0 0</pose><geometry><box><size>0.12 0.12 0.76</size></box></geometry></collision>
+      <collision name="collision_leg_4"><pose>1.2 0.28 0.38 0 0 0</pose><geometry><box><size>0.12 0.12 0.76</size></box></geometry></collision>
       <visual name="belt">
         <pose>0 0 0.92 0 0 0</pose>
         <geometry><box><size>2.85 0.68 0.10</size></box></geometry>

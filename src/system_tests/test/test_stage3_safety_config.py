@@ -215,7 +215,10 @@ def test_warehouse_navigation_has_one_safety_enforced_velocity_path():
 
     assert "remappings=[('cmd_vel', 'cmd_vel_nav')]" in launch
     assert launch.count("remappings=[('cmd_vel', 'cmd_vel_nav')]") == 4
-    assert monitor['cmd_vel_in_topic'] == 'cmd_vel_smoothed'
+    # smoother -> dynamic_yield (stop-and-wait) -> Collision Monitor -> robot
+    assert ("remappings=[('cmd_vel_in', 'cmd_vel_smoothed'),\n"
+            "                         ('cmd_vel_out', 'cmd_vel_yield')]") in launch
+    assert monitor['cmd_vel_in_topic'] == 'cmd_vel_yield'
     assert monitor['cmd_vel_out_topic'] == 'cmd_vel'
     assert set(monitor['observation_sources']) == {
         'scan', 'detection_obstacles'}

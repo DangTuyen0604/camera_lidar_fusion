@@ -4,19 +4,14 @@
     <static>true</static>
     <link name="link">
       <collision name="collision"><pose>0 0 0.9 0 0 0</pose><geometry><cylinder><radius>0.30</radius><length>1.8</length></cylinder></geometry></collision>
-      <visual name="left_leg"><pose>0 -0.10 0.38 0 0 0</pose><geometry><cylinder><radius>0.085</radius><length>0.76</length></cylinder></geometry><material><diffuse>0.08 0.11 0.17 1</diffuse></material></visual>
-      <visual name="right_leg"><pose>0 0.10 0.38 0 0 0</pose><geometry><cylinder><radius>0.085</radius><length>0.76</length></cylinder></geometry><material><diffuse>0.08 0.11 0.17 1</diffuse></material></visual>
-      <!-- Keep the high-visibility workwear continuous through the planar
-           LiDAR scan height.  The simulation detector segments this physical
-           orange material, so the scan returns from the worker's collision
-           cylinder project inside the same camera bounding box. -->
-      <visual name="high_visibility_apron"><pose>0 0 0.58 0 0 0</pose><geometry><box><size>0.30 0.44 0.70</size></box></geometry><material><diffuse>0.98 0.36 0.035 1</diffuse></material></visual>
-      <visual name="torso"><pose>0 0 1.08 0 0 0</pose><geometry><box><size>0.30 0.48 0.62</size></box></geometry><material><diffuse>0.98 0.36 0.035 1</diffuse></material></visual>
-      <visual name="reflective_band"><pose>-0.156 0 1.10 0 0 0</pose><geometry><box><size>0.012 0.49 0.09</size></box></geometry><material><diffuse>0.93 0.92 0.20 1</diffuse><emissive>0.10 0.10 0.01 1</emissive></material></visual>
-      <visual name="left_arm"><pose>0 -0.29 1.06 0 0 0</pose><geometry><cylinder><radius>0.065</radius><length>0.58</length></cylinder></geometry><material><diffuse>0.98 0.36 0.035 1</diffuse></material></visual>
-      <visual name="right_arm"><pose>0 0.29 1.06 0 0 0</pose><geometry><cylinder><radius>0.065</radius><length>0.58</length></cylinder></geometry><material><diffuse>0.98 0.36 0.035 1</diffuse></material></visual>
-      <visual name="head"><pose>0 0 1.55 0 0 0</pose><geometry><sphere><radius>0.16</radius></sphere></geometry><material><diffuse>0.72 0.46 0.30 1</diffuse></material></visual>
-      <visual name="helmet"><pose>0 0 1.66 0 0 0</pose><geometry><sphere><radius>0.17</radius></sphere></geometry><material><diffuse>0.94 0.78 0.05 1</diffuse></material></visual>
+      <!-- Gazebo Fuel OpenRobotics person (CC0), hi-vis orange clothing (hi_vis_*). -->
+      <visual name="mesh_0"><geometry><mesh><uri>meshes/worker_0.obj</uri></mesh></geometry><material><pbr><metal><albedo_map>materials/textures/worker_0.png</albedo_map></metal></pbr></material></visual>
+      <visual name="hi_vis_trousers"><geometry><mesh><uri>meshes/worker_1.obj</uri></mesh></geometry><material><pbr><metal><albedo_map>materials/textures/worker_1.png</albedo_map></metal></pbr></material></visual>
+      <visual name="hi_vis_top"><geometry><mesh><uri>meshes/worker_2.obj</uri></mesh></geometry><material><pbr><metal><albedo_map>materials/textures/worker_2.png</albedo_map></metal></pbr></material></visual>
+      <visual name="mesh_3"><geometry><mesh><uri>meshes/worker_3.obj</uri></mesh></geometry><material><pbr><metal><albedo_map>materials/textures/worker_3.png</albedo_map></metal></pbr></material></visual>
+      <visual name="mesh_4"><geometry><mesh><uri>meshes/worker_4.obj</uri></mesh></geometry><material><pbr><metal><albedo_map>materials/textures/worker_4.png</albedo_map></metal></pbr></material></visual>
+      <visual name="mesh_5"><geometry><mesh><uri>meshes/worker_5.obj</uri></mesh></geometry><material><pbr><metal><albedo_map>materials/textures/worker_5.png</albedo_map></metal></pbr></material></visual>
+      <visual name="mesh_6"><geometry><mesh><uri>meshes/worker_6.obj</uri></mesh></geometry><material><pbr><metal><albedo_map>materials/textures/worker_6.png</albedo_map></metal></pbr></material></visual>
     </link>
   </model>
 </sdf>

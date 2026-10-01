@@ -319,12 +319,27 @@ lifecycle_manager_localization:
     autostart: true
     node_names: [map_server, amcl]
 
+dynamic_yield:
+  ros__parameters:
+    use_sim_time: true
+    # A moving obstacle (unmapped LiDAR cluster faster than moving_speed)
+    # within stop_distance ahead stops the robot until none is within
+    # resume_distance for clear_hold s, or max_wait s pass (then Nav2 routes
+    # around it).  It stays "moving" for memory_time s after it pauses.
+    moving_speed: 0.35
+    memory_time: 3.0
+    stop_distance: 1.0
+    resume_distance: 1.5
+    clear_hold: 1.0
+    max_wait: 10.0
+
 collision_monitor:
   ros__parameters:
     use_sim_time: true
     base_frame_id: base_link
     odom_frame_id: odom
-    cmd_vel_in_topic: cmd_vel_smoothed
+    # dynamic_yield (stop-and-wait for moving obstacles) sits in front.
+    cmd_vel_in_topic: cmd_vel_yield
     cmd_vel_out_topic: cmd_vel
     state_topic: collision_monitor_state
     transform_tolerance: 0.2

@@ -278,30 +278,35 @@ def test_every_roaming_edge_has_worker_radius_clearance_on_static_map():
 
 def test_all_models_are_self_contained():
     root = Path(__file__).parents[1]
-    for name in ('shelf', 'pallet', 'cargo_box', 'worker', 'conveyor', 'docking_station'):
+    for name in ('shelf', 'pallet', 'cargo_box', 'worker', 'worker_standing',
+                 'worker_female', 'pallet_jack', 'dumpster', 'conveyor', 'docking_station'):
         assert (root / 'models' / name / 'model.sdf').is_file()
         assert (root / 'models' / name / 'model.config').is_file()
 
 
+def _mesh_z_range(path):
+    zs = [float(line.split()[3]) for line in path.read_text().splitlines()
+          if line.startswith('v ')]
+    return min(zs), max(zs)
+
+
 def test_worker_high_visibility_geometry_intersects_lidar_scan_height():
     root = Path(__file__).parents[1]
-    worker = ET.parse(root / 'models' / 'worker' / 'model.sdf').getroot()
-    visuals = {
-        visual.attrib['name']: visual
-        for visual in worker.findall('.//visual')
-    }
-    garment = visuals['high_visibility_apron']
-    centre_z = float(garment.findtext('pose').split()[2])
-    height = float(garment.findtext('.//box/size').split()[2])
-    torso = visuals['torso']
-    torso_centre_z = float(torso.findtext('pose').split()[2])
-    torso_height = float(torso.findtext('.//box/size').split()[2])
+    for name in ('worker', 'worker_standing', 'worker_female'):
+        model = root / 'models' / name
+        worker = ET.parse(model / 'model.sdf').getroot()
+        ranges = [_mesh_z_range(model / visual.findtext('.//mesh/uri'))
+                  for visual in worker.findall('.//visual')
+                  if visual.attrib['name'].startswith('hi_vis_')]
+        assert ranges, f'{name} has no hi_vis_* clothing'
+        bottom = min(low for low, _ in ranges)
+        top = max(high for _, high in ranges)
 
-    # Robot planar LiDAR is at z=0.35 m.  Continuous orange workwear must
-    # include that plane and overlap the torso, otherwise camera segmentation
-    # and physical LiDAR returns describe disjoint parts of the same worker.
-    assert centre_z - height / 2 <= 0.35 <= centre_z + height / 2
-    assert centre_z + height / 2 >= torso_centre_z - torso_height / 2
+        # The scan plane is ~0.47 m above the floor (lidar_link 0.35 m on a
+        # 0.12 m base).  Continuous orange workwear must span it and reach
+        # the torso, otherwise camera colour blobs and LiDAR returns
+        # describe disjoint parts of the same worker.
+        assert bottom <= 0.35 and top >= 1.2, (name, bottom, top)
 
 
 def test_world_matches_navigation_map_boundary():

@@ -85,7 +85,9 @@ class WarehouseSim:
                 body_name = f'entity_{model_name}_{index}'
                 body = spec.worldbody.add_body(name=body_name, mocap=True)
                 body.pos = [100.0 + 5 * len(self._pools), 5.0 * index, HIDDEN_Z]
-                sdf_loader.add_model_geoms(body, model, prefix=f'{body_name}/')
+                sdf_loader.add_model_geoms(body, model, prefix=f'{body_name}/', spec=spec,
+                                           base_dir=Path(sdf_path).parent,
+                                           model_paths=model_paths)
                 slots.append(body_name)
             self._pools[model_name] = slots
 
@@ -114,7 +116,10 @@ class WarehouseSim:
         self.lidar_angles = angles
         self._ray_local = np.stack([np.cos(angles), np.sin(angles),
                                     np.zeros_like(angles)], axis=1)
-        self._ray_group = np.array([1, 0, 0, 0, 0, 0], dtype=np.uint8)
+        # Ray-cast the primitive collisions (group 3), not the detailed visuals:
+        # returns then match the static map built from the same geometry.
+        self._ray_group = np.zeros(6, dtype=np.uint8)
+        self._ray_group[sdf_loader.COLLISION_GROUP] = 1
 
         self.cmd = np.zeros(2)       # requested (v, w)
         self.applied = np.zeros(2)   # acceleration-limited (v, w)

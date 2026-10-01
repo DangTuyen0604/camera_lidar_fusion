@@ -50,7 +50,9 @@
         <material>
           <ambient>0.30 0.32 0.35 1</ambient>
           <diffuse>0.42 0.45 0.48 1</diffuse>
-          <pbr><metal><roughness>0.88</roughness></metal></pbr>
+          <!-- AWS RoboMaker GroundB concrete (MIT-0), one tile per 4 m. -->
+          <pbr><metal><roughness>0.88</roughness><albedo_map>textures/floor.png</albedo_map></metal></pbr>
+          <texrepeat>0.25 0.25</texrepeat>
         </material>
       </visual>
     </link>
@@ -97,30 +99,32 @@
     </link>
   </model>
 
+  <!-- Walls look 5 m tall (AWS RoboMaker WallB texture, MIT-0); the 1.6 m
+       collision boxes are what the LiDAR and the map use. -->
   <!-- Physical perimeter corresponding to the occupied border in
        warehouse_map.pgm (origin -9,-7, resolution 0.2 m). -->
   <model name="wall_west">
     <static>true</static><pose>-8.8 0 0.8 0 0 0</pose><link name="link">
       <collision name="collision"><geometry><box><size>0.4 14 1.6</size></box></geometry></collision>
-      <visual name="visual"><geometry><box><size>0.4 14 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+      <visual name="visual"><pose>0 0 1.7 0 0 0</pose><geometry><box><size>0.4 14 5.0</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse><pbr><metal><albedo_map>textures/wall.png</albedo_map></metal></pbr><texrepeat>0.25 0.25</texrepeat></material></visual>
     </link>
   </model>
   <model name="wall_east">
     <static>true</static><pose>8.8 0 0.8 0 0 0</pose><link name="link">
       <collision name="collision"><geometry><box><size>0.4 14 1.6</size></box></geometry></collision>
-      <visual name="visual"><geometry><box><size>0.4 14 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+      <visual name="visual"><pose>0 0 1.7 0 0 0</pose><geometry><box><size>0.4 14 5.0</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse><pbr><metal><albedo_map>textures/wall.png</albedo_map></metal></pbr><texrepeat>0.25 0.25</texrepeat></material></visual>
     </link>
   </model>
   <model name="wall_south">
     <static>true</static><pose>0 -6.8 0.8 0 0 0</pose><link name="link">
       <collision name="collision"><geometry><box><size>17.2 0.4 1.6</size></box></geometry></collision>
-      <visual name="visual"><geometry><box><size>17.2 0.4 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+      <visual name="visual"><pose>0 0 1.7 0 0 0</pose><geometry><box><size>17.2 0.4 5.0</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse><pbr><metal><albedo_map>textures/wall.png</albedo_map></metal></pbr><texrepeat>0.25 0.25</texrepeat></material></visual>
     </link>
   </model>
   <model name="wall_north">
     <static>true</static><pose>0 6.8 0.8 0 0 0</pose><link name="link">
       <collision name="collision"><geometry><box><size>17.2 0.4 1.6</size></box></geometry></collision>
-      <visual name="visual"><geometry><box><size>17.2 0.4 1.6</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse></material></visual>
+      <visual name="visual"><pose>0 0 1.7 0 0 0</pose><geometry><box><size>17.2 0.4 5.0</size></box></geometry><material><diffuse>0.25 0.28 0.32 1</diffuse><pbr><metal><albedo_map>textures/wall.png</albedo_map></metal></pbr><texrepeat>0.25 0.25</texrepeat></material></visual>
     </link>
   </model>
   <include><uri>model://shelf</uri><name>shelf_west_1</name><pose>-6 -1.8 0 0 0 0</pose></include>

@@ -57,6 +57,12 @@ def generate_launch_description():
         Node(package='nav2_velocity_smoother', executable='velocity_smoother',
              name='velocity_smoother', output='screen', parameters=common,
              remappings=[('cmd_vel', 'cmd_vel_nav')]),
+        # Stop-and-wait for moving obstacles: cmd_vel_smoothed -> cmd_vel_yield,
+        # before Collision Monitor so that stays the last safety layer.
+        Node(package='warehouse_mission_manager', executable='dynamic_yield',
+             name='dynamic_yield', output='screen', parameters=common,
+             remappings=[('cmd_vel_in', 'cmd_vel_smoothed'),
+                         ('cmd_vel_out', 'cmd_vel_yield')]),
         Node(package='nav2_collision_monitor', executable='collision_monitor',
              name='collision_monitor', output='screen', parameters=common),
         # Docking must enter the same smoother/safety chain as navigation.

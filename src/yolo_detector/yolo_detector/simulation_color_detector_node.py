@@ -23,10 +23,13 @@ class SimulationColorDetectorNode(Node):
             'image_topic', '/fusion/synced/image').value
         detections_topic = self.declare_parameter(
             'detections_topic', '/detections_2d').value
+        # Hi-vis orange only (OpenCV hue 5-20, saturation >= 180).  A wider
+        # band also matches the yellow rack frames, cardboard crates and
+        # pallet wood of the textured warehouse.
         self.lower_hsv = tuple(self.declare_parameter(
-            'lower_hsv', [3, 80, 60]).value)
+            'lower_hsv', [5, 180, 80]).value)
         self.upper_hsv = tuple(self.declare_parameter(
-            'upper_hsv', [35, 255, 255]).value)
+            'upper_hsv', [20, 255, 255]).value)
         self.min_area = int(self.declare_parameter('min_area', 150).value)
         self.padding = int(self.declare_parameter('bbox_padding', 4).value)
         self.bridge = CvBridge()

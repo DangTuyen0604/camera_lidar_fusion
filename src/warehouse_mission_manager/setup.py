@@ -13,4 +13,5 @@ setup(name=package_name, version='0.1.0', packages=[package_name],
       maintainer='Nguyen Dang Tuyen', maintainer_email='nguyendangtuyen062004@gmail.com',
       description='Warehouse mission manager', license='Apache-2.0',
       entry_points={'console_scripts': [
-          'mission_manager = warehouse_mission_manager.mission_manager:main']})
+          'mission_manager = warehouse_mission_manager.mission_manager:main',
+          'dynamic_yield = warehouse_mission_manager.dynamic_yield_node:main']})
