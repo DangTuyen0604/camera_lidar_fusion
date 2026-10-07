@@ -5,14 +5,19 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# The static libraries are linked into the shared component library too.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(fusion_interfaces REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -24,10 +29,13 @@ add_library(${PROJECT_NAME}
   src/core/calibration_quality.cpp
   src/core/calibration_loader.cpp
   src/core/coordinate_transform.cpp
+  src/core/euclidean_clustering.cpp
+  src/core/ground_segmentation.cpp
   src/core/latency_tracker.cpp
   src/core/lidar_projector.cpp
   src/core/object_depth_estimator.cpp
   src/core/pointcloud_filter.cpp
+  src/core/pointcloud_preprocessor.cpp
   src/core/timestamp_sync.cpp
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
@@ -96,8 +104,29 @@ target_compile_features(metrics_node PUBLIC cxx_std_17)
 target_link_libraries(metrics_node ${PROJECT_NAME})
 ament_target_dependencies(metrics_node fusion_interfaces rclcpp)
 
+# Composable node; also installed as the standalone pointcloud_preprocess_node.
+add_library(pointcloud_preprocess_component SHARED src/nodes/pointcloud_preprocess_node.cpp)
+target_compile_features(pointcloud_preprocess_component PUBLIC cxx_std_17)
+target_link_libraries(pointcloud_preprocess_component ${PROJECT_NAME}_ros)
+ament_target_dependencies(
+  pointcloud_preprocess_component
+  geometry_msgs
+  rclcpp
+  rclcpp_components
+  sensor_msgs
+  tf2
+  tf2_ros
+  visualization_msgs
+)
+rclcpp_components_register_node(
+  pointcloud_preprocess_component
+  PLUGIN "perception_core::PointCloudPreprocessNode"
+  EXECUTABLE pointcloud_preprocess_node
+)
+
 install(
-  TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_ros sensor_sync_node object_fusion_node
+  TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_ros pointcloud_preprocess_component
+    sensor_sync_node object_fusion_node
     lidar_projection_node calibration_monitor_node metrics_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -139,6 +168,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_pointcloud_io test/test_pointcloud_io.cpp)
   target_link_libraries(test_pointcloud_io ${PROJECT_NAME}_ros)
+
+  ament_add_gtest(test_pointcloud_preprocessing test/test_pointcloud_preprocessing.cpp)
+  target_link_libraries(test_pointcloud_preprocessing ${PROJECT_NAME})
 
   ament_add_gtest(test_timestamp_sync test/test_timestamp_sync.cpp)
   target_link_libraries(test_timestamp_sync ${PROJECT_NAME})

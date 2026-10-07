@@ -52,6 +52,14 @@ std::vector<PointXYZI> PointCloudFilter::filter(
   const std::vector<PointXYZI> & points) const
 {
   std::vector<PointXYZI> output;
+  filter(points, output);
+  return output;
+}
+
+void PointCloudFilter::filter(
+  const std::vector<PointXYZI> & points, std::vector<PointXYZI> & output) const
+{
+  output.clear();
   output.reserve(points.size());
   std::unordered_map<VoxelKey, std::size_t, VoxelKeyHash> voxels;
 
@@ -80,7 +88,6 @@ std::vector<PointXYZI> PointCloudFilter::filter(
       output[iterator->second] = point;
     }
   }
-  return output;
 }
 
 const PointCloudFilterParameters & PointCloudFilter::parameters() const noexcept

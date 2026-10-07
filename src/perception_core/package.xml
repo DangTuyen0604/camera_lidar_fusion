@@ -13,9 +13,11 @@
   <depend>cv_bridge</depend>
   <depend>eigen</depend>
   <depend>fusion_interfaces</depend>
+  <depend>geometry_msgs</depend>
   <depend>message_filters</depend>
   <depend>libopencv-dev</depend>
   <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>tf2</depend>

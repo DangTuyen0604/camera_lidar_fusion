@@ -23,6 +23,8 @@ public:
     PointCloudFilterParameters parameters = PointCloudFilterParameters{});
 
   std::vector<PointXYZI> filter(const std::vector<PointXYZI> & points) const;
+  // Same as above, writing into `output` and reusing its capacity.
+  void filter(const std::vector<PointXYZI> & points, std::vector<PointXYZI> & output) const;
   const PointCloudFilterParameters & parameters() const noexcept;
 
 private:
