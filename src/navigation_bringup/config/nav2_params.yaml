@@ -18,8 +18,14 @@ controller_server:
       # Docking staging is geometric, not merely a coarse navigation goal.
       # Arrive close and aligned enough for the graceful controller to follow
       # the 0.70 m straight approach instead of accepting a diagonal start.
-      xy_goal_tolerance: 0.10
-      yaw_goal_tolerance: 0.25
+      # Staging offsets become dock error: the path usually reaches staging
+      # from the side, so a 0.10 m radius left 7-9 cm lateral offset and the
+      # graceful controller had to swing 13 deg off-axis to recover it. 0.25
+      # rad likewise started docking up to 14 deg off. Either left 4-6 deg of
+      # yaw at the dock against the 5 deg contract. RPP moves ~2 cm and turns
+      # ~0.03 rad per cycle, so both bands are still reached in one pass.
+      xy_goal_tolerance: 0.05
+      yaw_goal_tolerance: 0.10
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: 0.35
@@ -99,6 +105,9 @@ amcl:
     odom_frame_id: odom
     global_frame_id: map
     scan_topic: /scan_filtered
+    # Scan-plane-only map with nav2_amcl's half-cell convention compensated
+    # (localization.launch.py / tools/generate_warehouse_map.py).
+    map_topic: localization_map
     min_particles: 500
     max_particles: 2000
     # Wheel odometry accumulates noticeable slip on the simulated floor. Docking
@@ -111,9 +120,14 @@ amcl:
     max_beams: 180
     laser_model_type: likelihood_field_prob
     laser_likelihood_max_dist: 2.0
-    sigma_hit: 0.20
-    z_hit: 0.80
-    z_rand: 0.20
+    # The localization map matches the LiDAR plane exactly. Replaying a
+    # recorded run: 0.20 left 3-5 cm at S3, 0.05 recovered worst from wheel
+    # slip (p95 0.53 m); 0.10 kept every dock pose within 2 cm / 0.5 deg.
+    # Beams that hit unmapped workers/boxes are skipped instead of trusted.
+    sigma_hit: 0.10
+    z_hit: 0.90
+    z_rand: 0.10
+    do_beamskip: true
     # Measured MuJoCo odometry error is <=2% (in-place spins scrub ~1.8%).
     # 0.35 let the particle cloud spread ~35% per turn, so the AMCL yaw
     # wandered during every rotation and the map-frame local costmap smeared
@@ -261,6 +275,11 @@ global_costmap:
           # obstacles, so far marks only add heading-error smear.
           obstacle_max_range: 5.0
           raytrace_max_range: 10.0
+          # Per-source heights default to 0.0 in Nav2, which drops every
+          # return from the 0.35 m LiDAR: the planner then never saw dynamic
+          # obstacles and kept planning through a box the controller refused.
+          min_obstacle_height: 0.0
+          max_obstacle_height: 2.0
       # Camera-LiDAR detections live in their own layer whose cells expire
       # 1.0 s after the last detection. Raytrace clearing in the obstacle
       # layer depended on every clearing message landing in time; one missed

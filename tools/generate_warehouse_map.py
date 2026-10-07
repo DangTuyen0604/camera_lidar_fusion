@@ -7,6 +7,16 @@ projected onto the ground plane.  The map must be fine enough for AMCL: its
 likelihood field is constant inside a cell, so at 0.2 m/cell a 0.1-0.2 m pose
 error is unobservable, which is larger than the 8 cm docking contract.
 
+It also writes warehouse_localization_map for AMCL, which differs on purpose:
+- only geometry crossing the LiDAR scan plane: the 0.64-1.00 m conveyor belt
+  is an obstacle for the planner but invisible to the scan, and AMCL dragged
+  the pose towards it;
+- 0.025 m cells, halving the likelihood-field quantisation;
+- origin shifted by half a cell: nav2_amcl looks cells up with
+  floor(x / res + 0.5) relative to the map origin, i.e. it treats the origin
+  as the centre of cell 0 instead of its corner, and settled ~res/2 off.
+Measured by replaying a recorded run: dock-pose AMCL error 4 cm -> <=1.3 cm.
+
 Usage:
     python3 tools/generate_warehouse_map.py            # 0.05 m/cell
     python3 tools/generate_warehouse_map.py --resolution 0.1
@@ -31,6 +41,10 @@ MIN_HEIGHT = 0.03      # ignore geometry within 3 cm of the floor
 # Overlap below 5 mm is authoring round-off (yaw 3.14 is not pi), not contact.
 TOLERANCE = 0.005
 OCCUPIED, FREE = 0, 9  # P2 values with maxval 9, as map_server expects
+# Planar LiDAR height above the floor: lidar_joint z=0.35 on base_link, which
+# sits 0.06-0.12 m up (URDF vs settled MuJoCo body), so the plane is 0.41-0.47 m.
+SCAN_HEIGHT = 0.45
+LOCALIZATION_RESOLUTION = 0.025
 
 
 def pose_matrix(text):
@@ -68,8 +82,12 @@ def half_extents(geometry):
     return None
 
 
-def footprints(model, frame):
-    """Yield (ground polygon, is_round) for each collision primitive of a model."""
+def footprints(model, frame, scan_height=None):
+    """
+    Yield (ground polygon, is_round) for each collision primitive of a model.
+
+    With scan_height, only primitives whose vertical extent contains it.
+    """
     for link in model.findall('link'):
         link_frame = frame @ pose_of(link)
         for collision in link.findall('collision'):
@@ -84,6 +102,9 @@ def footprints(model, frame):
             world = (transform @ corners.T).T[:, :3]
             if world[:, 2].max() < FLOOR_TOP + MIN_HEIGHT:
                 continue
+            if scan_height is not None and not (
+                    world[:, 2].min() <= scan_height <= world[:, 2].max()):
+                continue
             round_ = geometry.find('box') is None
             yield world[:, :2], round_, transform, extents
 
@@ -93,7 +114,7 @@ def _counter_clockwise(polygon):
     return np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y) > 0
 
 
-def rasterize(resolution):
+def rasterize(resolution, scan_height=None):
     width, height = (round(s / resolution) for s in SIZE)
     grid = np.full((height, width), FREE, np.uint8)
     world = ET.parse(WORLD).getroot().find('world')
@@ -110,7 +131,7 @@ def rasterize(resolution):
 
     half = resolution / 2
     for model, frame in models:
-        for polygon, round_, transform, extents in footprints(model, frame):
+        for polygon, round_, transform, extents in footprints(model, frame, scan_height):
             # A cell is occupied when the obstacle overlaps its interior (the
             # conservative rule of the original map); merely touching an edge
             # does not count.
@@ -133,18 +154,18 @@ def rasterize(resolution):
     return grid
 
 
-def write(grid, resolution):
+def write(grid, resolution, name='warehouse_map', origin_offset=0.0):
     height, width = grid.shape
     lines = ['P2',
              f'# Warehouse static map, {resolution} m/cell, generated from '
              'warehouse.sdf collision geometry by tools/generate_warehouse_map.py',
              f'{width} {height}', '9']
     lines += [' '.join(str(v) for v in row) for row in grid]
-    (MAPS / 'warehouse_map.pgm').write_text('\n'.join(lines) + '\n')
-    (MAPS / 'warehouse_map.yaml').write_text(
-        'image: warehouse_map.pgm\nmode: trinary\n'
+    (MAPS / f'{name}.pgm').write_text('\n'.join(lines) + '\n')
+    (MAPS / f'{name}.yaml').write_text(
+        f'image: {name}.pgm\nmode: trinary\n'
         f'resolution: {resolution}\n'
-        f'origin: [{ORIGIN[0]}, {ORIGIN[1]}, 0.0]\n'
+        f'origin: [{ORIGIN[0] + origin_offset}, {ORIGIN[1] + origin_offset}, 0.0]\n'
         'negate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.25\n')
 
 
@@ -156,6 +177,11 @@ def main():
     write(grid, args.resolution)
     print(f'{grid.shape[1]}x{grid.shape[0]} cells at {args.resolution} m, '
           f'{int((grid == OCCUPIED).sum())} occupied')
+    res = LOCALIZATION_RESOLUTION
+    localization = rasterize(res, SCAN_HEIGHT)
+    write(localization, res, 'warehouse_localization_map', origin_offset=res / 2)
+    print(f'localization: {localization.shape[1]}x{localization.shape[0]} cells at '
+          f'{res} m, {int((localization == OCCUPIED).sum())} occupied')
 
 
 if __name__ == '__main__':

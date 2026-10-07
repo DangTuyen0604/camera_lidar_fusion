@@ -29,9 +29,9 @@ def test_geometry_map_initial_pose_matches_warehouse_spawn():
     assert "'spawn_y': '-4.0'" in warehouse
 
 
-def _warehouse_map():
+def _warehouse_map(name='warehouse_map'):
     maps = package_root('navigation_bringup') / 'maps'
-    metadata = yaml_asset('navigation_bringup', 'maps/warehouse_map.yaml')
+    metadata = yaml_asset('navigation_bringup', f'maps/{name}.yaml')
     tokens = [
         token for line in (maps / metadata['image']).read_text().splitlines()
         if not line.startswith('#') for token in line.split()
@@ -61,6 +61,55 @@ def test_warehouse_map_is_generated_from_current_sdf():
     assert expected.shape == (height, width)
     assert expected.ravel().tolist() == pixels, (
         'warehouse_map.pgm is stale: run tools/generate_warehouse_map.py')
+
+
+def _generator():
+    workspace = Path(__file__).resolve().parents[3]
+    spec = importlib.util.spec_from_file_location(
+        'generate_warehouse_map', workspace / 'tools' / 'generate_warehouse_map.py')
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    return generator
+
+
+def test_amcl_localizes_on_the_scan_plane_map():
+    """
+    AMCL must match scans against what the LiDAR can actually see.
+
+    The conveyor belt (0.64-1.00 m) is above the scan plane: it stays in /map
+    for the planner but must not appear in AMCL's map, which also compensates
+    nav2_amcl's half-cell origin convention. Without both, dock poses were
+    localized up to 4 cm off (4 deg physical yaw at S1).
+    """
+    generator = _generator()
+    metadata, width, height, pixels = _warehouse_map('warehouse_localization_map')
+    resolution = metadata['resolution']
+    assert resolution <= 0.025
+    nav = yaml_asset('navigation_bringup', 'maps/warehouse_map.yaml')
+    assert metadata['origin'][0] == nav['origin'][0] + resolution / 2
+    assert metadata['origin'][1] == nav['origin'][1] + resolution / 2
+    expected = generator.rasterize(resolution, generator.SCAN_HEIGHT)
+    assert expected.shape == (height, width)
+    assert expected.ravel().tolist() == pixels, (
+        'warehouse_localization_map.pgm is stale: run tools/generate_warehouse_map.py')
+
+    def occupied(map_metadata, map_width, map_height, map_pixels, x, y):
+        res = map_metadata['resolution']
+        column = int((x - generator.ORIGIN[0]) / res)
+        row = map_height - 1 - int((y - generator.ORIGIN[1]) / res)
+        return map_pixels[row * map_width + column] == 0
+
+    belt = (-2.0, 4.5)
+    assert occupied(*_warehouse_map(), *belt)
+    assert not occupied(metadata, width, height, pixels, *belt)
+    assert occupied(metadata, width, height, pixels, -5.55, 3.5)  # dock S1 body
+
+    config = yaml_asset('navigation_bringup', 'config/nav2_params.yaml')
+    assert config['amcl']['ros__parameters']['map_topic'] == 'localization_map'
+    launch = text('navigation_bringup', 'launch/localization.launch.py')
+    assert "'warehouse_localization_map.yaml'" in launch
+    assert "'topic_name': 'localization_map'" in launch
+    assert "'localization_map_server'" in launch.split('node_names')[1]
 
 
 def test_warehouse_map_matches_all_physical_docks():
@@ -135,7 +184,8 @@ def test_controller_can_turn_onto_replanned_path():
 
 
 def test_detection_observations_do_not_leave_trails():
-    """Moving workers must not leave stale marks in either costmap.
+    """
+    Moving workers must not leave stale marks in either costmap.
 
     Nav2 keeps the newest observation until it is replaced when persistence
     is 0, so the 2 Hz planner map still sees every obstacle. A persistence
@@ -158,7 +208,8 @@ def test_detection_observations_do_not_leave_trails():
 
 
 def test_mission_detections_expire_instead_of_waiting_for_clearing():
-    """The mission stack marks detections in a decaying voxel layer.
+    """
+    The mission stack marks detections in a decaying voxel layer.
 
     Every cell expires shortly after its last detection, so a worker cannot
     leave a footprint behind when one clearing batch is missed.
@@ -190,6 +241,37 @@ def test_mission_detections_expire_instead_of_waiting_for_clearing():
         'spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer')
     assert 0.0 < scan_layer['voxel_decay'] <= 1.0
     assert scan_layer['scan']['topic'] == '/scan_filtered'
+
+
+def test_mission_planner_map_marks_lidar_obstacles():
+    """
+    The planner must see LiDAR obstacles the controller refuses to drive into.
+
+    Nav2's per-source max_obstacle_height default (0.0) silently drops every
+    return of the 0.35 m LiDAR; the planner then kept routing M02 through the
+    fallen box that the local costmap held as lethal.
+    """
+    config = yaml_asset('navigation_bringup', 'config/nav2_params.yaml')
+    parameters = config['global_costmap']['global_costmap']['ros__parameters']
+    source = parameters['obstacle_layer']['scan']
+    assert source['marking'] is True
+    assert source['min_obstacle_height'] <= 0.0
+    assert source['max_obstacle_height'] >= 2.0
+
+
+def test_mission_staging_is_tight_enough_for_docking():
+    """
+    Staging error becomes dock error over the short 0.70 m approach.
+
+    With 0.10 m / 0.25 rad, S3/S4 docked at 4-5 deg against the 5 deg contract.
+    """
+    config = yaml_asset('navigation_bringup', 'config/nav2_params.yaml')
+    checker = config['controller_server']['ros__parameters']['goal_checker']
+    assert checker['xy_goal_tolerance'] <= 0.05
+    assert checker['yaw_goal_tolerance'] <= 0.10
+    manager = text('warehouse_mission_manager',
+                   'warehouse_mission_manager/mission_manager.py')
+    assert '_start_dock_when_settled' in manager
 
 
 def test_navigation_consumers_share_the_filtered_lidar():

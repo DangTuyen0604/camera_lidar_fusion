@@ -35,6 +35,8 @@ def navigation_succeeded(response):
 
 
 class MissionManager(Node):
+    DOCK_SETTLE_TIMEOUT = 3.0
+
     def __init__(self):
         super().__init__('warehouse_mission_manager')
         share = Path(get_package_share_directory('warehouse_mission_manager'))
@@ -55,6 +57,7 @@ class MissionManager(Node):
         self.collision = False
         self.deadline = None
         self.dock_validation_deadline = None
+        self.dock_settle_deadline = None
         self.cargo = CargoManager()
         self.navigation = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.navigator_state = self.create_client(
@@ -186,7 +189,24 @@ class MissionManager(Node):
             self.cargo.unload()
             self.deadline = self.get_clock().now() + Duration(seconds=2.0)
             return
+        # NavigateToPose succeeds as soon as the heading is inside the goal
+        # tolerance, while the robot is still turning. Starting DockRobot then
+        # carried that turn into the short 0.70 m approach and left 4-5 deg of
+        # yaw at the dock. Let the robot come to rest first.
         self._transition(MissionState.DOCKING)
+        self.dock_settle_deadline = (
+            self.get_clock().now() + Duration(seconds=self.DOCK_SETTLE_TIMEOUT))
+
+    def _start_dock_when_settled(self):
+        twist = self.odom.twist.twist if self.odom is not None else None
+        stopped = twist is not None and (
+            math.hypot(twist.linear.x, twist.linear.y) < DockingController.VELOCITY_TOLERANCE
+            and abs(twist.angular.z) < DockingController.VELOCITY_TOLERANCE)
+        if not stopped and self.get_clock().now() < self.dock_settle_deadline:
+            return
+        self.dock_settle_deadline = None
+        if not stopped:
+            self.get_logger().warn('[MISSION] Robot not settled at staging; docking anyway')
         if not self.docking.dock(self.mission['destination'], self._docked):
             self.get_logger().warn('Waiting for dock_robot action server')
             self._transition(MissionState.CARGO_LOADED)
@@ -289,6 +309,9 @@ class MissionManager(Node):
             if not self._navigate(
                     self.mission['destination'], self._predock_arrived, offset=-0.70):
                 self._transition(MissionState.CARGO_LOADED)
+        elif (self.state == MissionState.DOCKING and
+              self.dock_settle_deadline is not None):
+            self._start_dock_when_settled()
         elif (self.state == MissionState.DOCKING and
               self.dock_validation_deadline is not None):
             self._validate_docked_pose()
