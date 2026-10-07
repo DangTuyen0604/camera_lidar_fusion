@@ -87,7 +87,8 @@ def save_texture(image, path, tint=None):
 
 def export_model(name, dae, *, size=None, height=None, keep=None, tint=None,
                  tint_parts=()):
-    """Write meshes/<name>_<i>.obj + materials/textures/<name>_<i>.png.
+    """
+    Write meshes/<name>_<i>.obj + materials/textures/<name>_<i>.png.
 
     size: fit the model's bounding box to (x, y, z) metres (non-uniform);
     height: uniform scale to this height. The result is centred in x/y and
@@ -123,7 +124,8 @@ def export_model(name, dae, *, size=None, height=None, keep=None, tint=None,
 
 
 def parts_textured_with(dae, keywords):
-    """Indices of parts whose texture file name contains one of keywords.
+    """
+    Return indices of parts whose texture file name contains one of keywords.
 
     Material names are empty in these files, so each part's texture image is
     matched against the image files next to the model.

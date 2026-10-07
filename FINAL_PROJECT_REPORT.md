@@ -139,9 +139,9 @@ Reproduce with `python3 benchmarks/run_core_faults.py --seed 12014`.
 ## FINAL LAUNCH COMMAND
 
 ```bash
-cd /home/tuyen/Vinmotion/camera_lidar_fusion
+cd camera_lidar_fusion  # repository root
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ros2 launch fusion_bringup bringup_sim.launch.py \
-  use_rviz:=true gazebo_gui:=true mission_autostart:=true
+  use_rviz:=true sim_gui:=true mission_autostart:=true
 ```

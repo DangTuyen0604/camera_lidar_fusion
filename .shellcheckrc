@@ -1,0 +1,3 @@
+# ROS setup files (/opt/ros/*/setup.bash, install/setup.bash) do not exist
+# at lint time; every script sources them, so do not try to follow them.
+disable=SC1091

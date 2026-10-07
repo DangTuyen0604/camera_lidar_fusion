@@ -200,11 +200,11 @@ class Generator:
 
         self.renderer.disable_segmentation_rendering()
         self.renderer.update_scene(self.sim.data, camera='front_camera',
-                                    scene_option=self.view)
+                                   scene_option=self.view)
         rgb = self.renderer.render()
         self.renderer.enable_segmentation_rendering()
         self.renderer.update_scene(self.sim.data, camera='front_camera',
-                                    scene_option=self.view)
+                                   scene_option=self.view)
         seg = self.renderer.render()
 
         ids, types = seg[..., 0], seg[..., 1]
