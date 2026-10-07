@@ -36,7 +36,7 @@ from std_msgs.msg import Header
 from tf2_msgs.msg import TFMessage
 
 from . import sdf_loader
-from .simulator import quat_to_yaw, WarehouseSim, yaw_to_quat
+from .simulator import Lidar3dConfig, quat_to_yaw, WarehouseSim, yaw_to_quat
 
 
 # TF root of the URDF: base_footprint sits on the floor, 0.0635 m below
@@ -94,7 +94,19 @@ class MujocoSimNode(Node):
         service_ns = p('service_namespace', '/mujoco').value.rstrip('/')
         rates = {name: float(p(f'{name}_rate', default).value) for name, default in (
             ('clock', 250.0), ('odom', 50.0), ('joint_states', 50.0), ('imu', 100.0),
-            ('scan', 10.0), ('camera', 12.0))}
+            ('scan', 10.0), ('camera', 12.0), ('lidar_3d', 10.0))}
+        # 0 channels: no multi-layer LiDAR (planar /scan + /lidar/points only).
+        lidar_3d_channels = int(p('lidar_3d_channels', 0).value)
+        lidar_3d = None
+        if lidar_3d_channels > 0:
+            half_fov = float(p('lidar_3d_vertical_fov_deg', 30.0).value) / 2.0
+            lidar_3d = Lidar3dConfig(
+                channels=lidar_3d_channels,
+                samples=int(p('lidar_3d_samples', 900).value),
+                min_elevation_deg=-half_fov, max_elevation_deg=half_fov,
+                range_max=float(p('lidar_3d_range_max', 30.0).value))
+        else:
+            rates.pop('lidar_3d')
 
         entity_models = {}
         for name in entity_names:
@@ -104,7 +116,7 @@ class MujocoSimNode(Node):
                 self.get_logger().warn(f'No SDF for spawnable model {name!r}; skipped')
         started = time.monotonic()
         self.sim = WarehouseSim(scene, world or None, model_paths, meshdir or None,
-                                entity_models, pool_size, spawn)
+                                entity_models, pool_size, spawn, lidar_3d=lidar_3d)
         self.get_logger().info(
             f'MuJoCo {mujoco.__version__} loaded {Path(world).name if world else "empty world"} '
             f'in {time.monotonic() - started:.1f}s; robot at {spawn}; '
@@ -126,6 +138,8 @@ class MujocoSimNode(Node):
         self.scan_pub = self.create_publisher(LaserScan, '/scan', qos_profile_sensor_data)
         self.cloud_pub = self.create_publisher(
             PointCloud2, '/lidar/points', qos_profile_sensor_data)
+        self.cloud_3d_pub = self.create_publisher(
+            PointCloud2, '/lidar/points_3d', qos_profile_sensor_data)
         self.image_pub = self.create_publisher(Image, '/camera/image_raw', qos_profile_sensor_data)
         self.info_pub = self.create_publisher(
             CameraInfo, '/camera/camera_info', qos_profile_sensor_data)
@@ -299,6 +313,28 @@ class MujocoSimNode(Node):
                         for i, n in enumerate(('x', 'y', 'z', 'intensity'))]
         self.cloud_pub.publish(cloud)
 
+    _CLOUD_3D_DTYPE = np.dtype([('x', '<f4'), ('y', '<f4'), ('z', '<f4'),
+                                ('intensity', '<f4'), ('ring', '<u2')])
+    _CLOUD_3D_FIELDS = [
+        PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+        PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+        PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
+        PointField(name='intensity', offset=12, datatype=PointField.FLOAT32, count=1),
+        PointField(name='ring', offset=16, datatype=PointField.UINT16, count=1)]
+
+    def _publish_lidar_3d(self, stamp):
+        """Velodyne-style cloud: x/y/z/intensity float32 + uint16 ring, 18-byte points."""
+        xyz, ring = self.sim.scan_3d()
+        points = np.zeros(len(xyz), dtype=self._CLOUD_3D_DTYPE)
+        points['x'], points['y'], points['z'] = xyz[:, 0], xyz[:, 1], xyz[:, 2]
+        points['intensity'] = 100.0
+        points['ring'] = ring
+        step = self._CLOUD_3D_DTYPE.itemsize
+        self.cloud_3d_pub.publish(PointCloud2(
+            header=self._header(stamp, 'lidar_link'), height=1, width=len(points),
+            fields=self._CLOUD_3D_FIELDS, is_bigendian=False, point_step=step,
+            row_step=step * len(points), is_dense=True, data=points.tobytes()))
+
     def _publish_camera(self, stamp, renderer):
         renderer.update_scene(self.sim.data, camera='front_camera')
         pixels = renderer.render()
@@ -356,7 +392,7 @@ class MujocoSimNode(Node):
         publishers = {
             'clock': self._publish_clock, 'odom': self._publish_odom,
             'joint_states': self._publish_joint_states, 'imu': self._publish_imu,
-            'scan': self._publish_scan,
+            'scan': self._publish_scan, 'lidar_3d': self._publish_lidar_3d,
         }
         try:
             while rclpy.ok():

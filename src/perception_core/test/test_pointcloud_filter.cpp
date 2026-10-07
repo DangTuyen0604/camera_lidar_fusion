@@ -66,6 +66,28 @@ TEST(PointCloudFilter, KeepsHighestIntensityPointPerVoxel)
   EXPECT_DOUBLE_EQ(result[1].intensity, 0.4);
 }
 
+TEST(PointCloudFilter, DropsPointsInsideTheMinimumHorizontalRadius)
+{
+  perception_core::PointCloudFilterParameters parameters;
+  parameters.minimum = Eigen::Vector3d::Constant(-10.0);
+  parameters.maximum = Eigen::Vector3d::Constant(10.0);
+  parameters.minimum_radius = 0.4;
+  const perception_core::PointCloudFilter filter(parameters);
+
+  const auto result = filter.filter({
+    {Eigen::Vector3d(0.35, 0.0, 0.3), 1.0},   // docked station face
+    {Eigen::Vector3d(0.0, -0.2, 2.0), 1.0},   // above the robot: radius is horizontal
+    {Eigen::Vector3d(0.3, 0.3, 0.0), 1.0},    // 0.424 m away
+    {Eigen::Vector3d(-1.0, 0.0, 0.1), 1.0}
+    });
+  ASSERT_EQ(result.size(), 2U);
+  EXPECT_DOUBLE_EQ(result[0].position.x(), 0.3);
+  EXPECT_DOUBLE_EQ(result[1].position.x(), -1.0);
+
+  parameters.minimum_radius = -1.0;
+  EXPECT_THROW(perception_core::PointCloudFilter{parameters}, std::invalid_argument);
+}
+
 TEST(PointCloudFilter, RejectsInvalidBounds)
 {
   perception_core::PointCloudFilterParameters parameters;

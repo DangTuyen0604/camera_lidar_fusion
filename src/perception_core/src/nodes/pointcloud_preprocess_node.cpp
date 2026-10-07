@@ -55,7 +55,7 @@ Eigen::Isometry3d toIsometry(const geometry_msgs::msg::TransformStamped & transf
 // Sensor-agnostic LiDAR preprocessing: PointCloud2 in any field layout ->
 // target frame (TF) -> crop/voxel -> RANSAC ground removal -> Euclidean
 // clusters. Everything sensor-specific is a parameter; see
-// fusion_bringup/config/pointcloud_preprocess/*.yaml.
+// perception_core/config/*.yaml.
 class PointCloudPreprocessNode : public rclcpp::Node
 {
 public:
@@ -64,12 +64,21 @@ public:
   {
     const auto input_topic = declare_parameter<std::string>("input_topic", "/lidar/points");
     target_frame_ = declare_parameter<std::string>("target_frame", "base_footprint");
+    // "sensor" publishes results back in the cloud's own frame. Consumers
+    // that model the sensor from the message frame (STVL's LiDAR frustum
+    // clearing) need that; processing still happens in target_frame.
+    const auto output_frame = declare_parameter<std::string>("output_frame", "");
+    if (!output_frame.empty() && output_frame != "sensor") {
+      throw std::invalid_argument("output_frame must be \"\" or \"sensor\"");
+    }
+    output_in_sensor_frame_ = output_frame == "sensor";
     tf_timeout_ = rclcpp::Duration::from_seconds(
       declare_parameter<double>("tf_timeout_ms", 50.0) / 1000.0);
 
     PreprocessorParameters parameters;
     parameters.filter.minimum = vectorParameter(*this, "crop.minimum", parameters.filter.minimum);
     parameters.filter.maximum = vectorParameter(*this, "crop.maximum", parameters.filter.maximum);
+    parameters.filter.minimum_radius = declare_parameter<double>("crop.min_radius", 0.0);
     parameters.filter.voxel_size = declare_parameter<double>("voxel_size", 0.0);
     parameters.filter.minimum_intensity = declare_parameter<double>("minimum_intensity", 0.0);
     auto & ground = parameters.ground;
@@ -114,17 +123,21 @@ private:
   {
     const auto start = std::chrono::steady_clock::now();
     std_msgs::msg::Header header = cloud.header;
+    bool transformed = false;
     try {
       readPointCloud(cloud, points_);
       if (!target_frame_.empty() && target_frame_ != cloud.header.frame_id) {
-        const Eigen::Isometry3d transform = toIsometry(
+        to_target_ = toIsometry(
           tf_buffer_.lookupTransform(
             target_frame_, cloud.header.frame_id, rclcpp::Time(cloud.header.stamp),
             tf_timeout_));
         for (auto & point : points_) {
-          point.position = transform * point.position;
+          point.position = to_target_ * point.position;
         }
-        header.frame_id = target_frame_;
+        transformed = true;
+        if (!output_in_sensor_frame_) {
+          header.frame_id = target_frame_;
+        }
       }
     } catch (const tf2::TransformException & error) {
       RCLCPP_WARN_THROTTLE(
@@ -138,19 +151,40 @@ private:
 
     const PreprocessorOutput output = preprocessor_->process(points_);
 
+    const bool back_to_sensor = transformed && output_in_sensor_frame_;
+    const Eigen::Isometry3d to_sensor = back_to_sensor ? to_target_.inverse() :
+      Eigen::Isometry3d::Identity();
     auto obstacles = std::make_unique<sensor_msgs::msg::PointCloud2>();
-    writePointCloud(*output.obstacles, header, *obstacles);
+    writePointCloud(outputPoints(*output.obstacles, back_to_sensor, to_sensor), header, *obstacles);
     obstacles_publisher_->publish(std::move(obstacles));
     if (ground_publisher_->get_subscription_count() > 0) {
       auto ground = std::make_unique<sensor_msgs::msg::PointCloud2>();
-      writePointCloud(*output.ground, header, *ground);
+      writePointCloud(outputPoints(*output.ground, back_to_sensor, to_sensor), header, *ground);
       ground_publisher_->publish(std::move(ground));
     }
     if (clusters_publisher_->get_subscription_count() > 0) {
-      publishClusters(*output.clusters, header);
+      // Boxes stay axis-aligned in target_frame, where they are meaningful.
+      std_msgs::msg::Header cluster_header = header;
+      if (transformed) {
+        cluster_header.frame_id = target_frame_;
+      }
+      publishClusters(*output.clusters, cluster_header);
     }
     accumulate(output, std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count());
+  }
+
+  const std::vector<PointXYZI> & outputPoints(
+    const std::vector<PointXYZI> & points, bool back_to_sensor, const Eigen::Isometry3d & to_sensor)
+  {
+    if (!back_to_sensor) {
+      return points;
+    }
+    output_points_ = points;
+    for (auto & point : output_points_) {
+      point.position = to_sensor * point.position;
+    }
+    return output_points_;
   }
 
   void publishClusters(const std::vector<Cluster> & clusters, const std_msgs::msg::Header & header)
@@ -215,7 +249,10 @@ private:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   std::unique_ptr<PointCloudPreprocessor> preprocessor_;
+  bool output_in_sensor_frame_{false};
+  Eigen::Isometry3d to_target_{Eigen::Isometry3d::Identity()};
   std::vector<PointXYZI> points_;
+  std::vector<PointXYZI> output_points_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacles_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_publisher_;

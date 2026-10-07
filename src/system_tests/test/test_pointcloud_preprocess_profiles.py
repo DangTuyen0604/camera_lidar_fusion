@@ -21,7 +21,7 @@ def _declared_parameters():
 
 
 def _profiles():
-    directory = package_root('fusion_bringup') / 'config' / 'pointcloud_preprocess'
+    directory = package_root('perception_core') / 'config'
     profiles = sorted(directory.glob('*.yaml'))
     assert profiles, f'no profiles in {directory}'
     return profiles
@@ -53,6 +53,7 @@ def test_launch_resolves_every_shipped_profile():
     launch = (package_root('fusion_bringup') / 'launch'
               / 'pointcloud_preprocess.launch.py').read_text()
     ast.parse(launch)
-    assert "'config' / 'pointcloud_preprocess' / f'{profile}.yaml'" in launch
+    assert "get_package_share_directory('perception_core')" in launch
+    assert "'config' / f'{profile}.yaml'" in launch
     names = {path.stem for path in _profiles()}
     assert {'kitti_hdl64', 'sim_planar', 'custom_lidar'} <= names

@@ -353,3 +353,40 @@ def test_all_stage3_lifecycle_nodes_are_managed():
         'velocity_smoother',
         'collision_monitor',
     }
+
+
+def test_costmaps_see_obstacles_below_the_scan_plane():
+    """
+    Both costmaps must mark ground-removed 3D LiDAR points.
+
+    The 0.18 m blocking pallet is under the 0.46 m planar scan; only the
+    camera layer saw it, and the robot pressed into it until its wheels
+    slipped and AMCL drifted 0.5 m. Marks under the 16-ring frustum must
+    outlive the moment the pallet drops into the lowest beam's blind zone.
+    """
+    config = yaml_asset('navigation_bringup', 'config/nav2_params.yaml')
+    for name in ('local_costmap', 'global_costmap'):
+        parameters = config[name][name]['ros__parameters']
+        plugins = parameters['plugins']
+        assert plugins.index('lidar_layer') < plugins.index('inflation_layer')
+        layer = parameters['lidar_layer']
+        assert layer['plugin'] == 'spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer'
+        mark, clear = (layer[source] for source in layer['observation_sources'].split())
+        assert mark['topic'] == clear['topic'] == '/lidar/obstacles'
+        assert mark['marking'] and not mark['clearing']
+        assert mark['min_obstacle_height'] <= 0.05 < 0.18
+        assert clear['clearing'] and clear['model_type'] == 1
+        assert layer['voxel_decay'] >= 5.0
+        assert layer['update_footprint_enabled']
+
+    launch = text('navigation_bringup', 'launch/navigation.launch.py')
+    assert "executable='pointcloud_preprocess_node'" in launch
+    assert "'sim_vlp16.yaml'" in launch
+    profile = yaml_asset('perception_core', 'config/sim_vlp16.yaml')
+    preprocess = profile['pointcloud_preprocess']['ros__parameters']
+    assert preprocess['input_topic'] == '/lidar/points_3d'
+    # STVL takes the frustum origin from the message frame.
+    assert preprocess['output_frame'] == 'sensor'
+    assert preprocess['ground.enabled']
+    simulation = text('warehouse_simulation', 'launch/warehouse.launch.py')
+    assert "'lidar_3d_channels', default_value='16'" in simulation

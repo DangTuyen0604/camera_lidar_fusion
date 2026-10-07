@@ -14,6 +14,11 @@ struct PointCloudFilterParameters
   Eigen::Vector3d maximum{100.0, 30.0, 5.0};
   double minimum_intensity{0.0};
   double voxel_size{0.0};
+  // Drop points closer than this to the frame's z axis (horizontal range).
+  // In a robot frame this is the near-range/self filter of a 2D scan's
+  // range_min: returns from the robot body or from a station it is docked
+  // against, which the costmaps would otherwise put inside the footprint.
+  double minimum_radius{0.0};
 };
 
 class PointCloudFilter

@@ -58,6 +58,7 @@ PreprocessorParameters loadProfile(const std::string & path)
   PreprocessorParameters p;
   p.filter.minimum = vector("crop.minimum", p.filter.minimum);
   p.filter.maximum = vector("crop.maximum", p.filter.maximum);
+  p.filter.minimum_radius = get("crop.min_radius", p.filter.minimum_radius);
   p.filter.voxel_size = get("voxel_size", p.filter.voxel_size);
   p.filter.minimum_intensity = get("minimum_intensity", p.filter.minimum_intensity);
   p.remove_ground = get("ground.enabled", p.remove_ground);

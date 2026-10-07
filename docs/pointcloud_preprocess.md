@@ -22,12 +22,13 @@ gtest); the node is a thin composable wrapper.
 ## Sensor profiles
 
 Everything sensor-specific is a parameter in
-`fusion_bringup/config/pointcloud_preprocess/<profile>.yaml`:
+`perception_core/config/<profile>.yaml` (installed with the node):
 
 | Profile | Sensor | Frame |
 |---|---|---|
 | `kitti_hdl64` | KITTI Velodyne HDL-64E, 1.73 m above the road | sensor frame (no base frame in the player) |
 | `sim_planar` | MuJoCo warehouse robot, single-plane 360-beam LiDAR | `base_footprint`; ground removal off |
+| `sim_vlp16` | MuJoCo warehouse robot, simulated 16-ring LiDAR (`/lidar/points_3d`) | processed in `base_footprint`, published in `lidar_link` (`output_frame: sensor`) |
 | `custom_lidar` | Commented template for your own sensor | `base_footprint` |
 
 ```bash
@@ -51,6 +52,43 @@ so composed subscribers receive them without a copy.
    separate.
 4. `test_pointcloud_preprocess_profiles.py` rejects keys the node does not
    declare (ROS would silently ignore a typo).
+
+## Navigation integration
+
+The warehouse simulator also models a 16-ring LiDAR on the same mount
+(`lidar_3d_channels`, default 16 in `warehouse.launch.py`; +-15 deg, 900
+azimuth steps, ~5.6 ms of ray casting per scan). It publishes
+`/lidar/points_3d` with x/y/z/intensity float32 and a uint16 `ring` field,
+like a Velodyne driver. The planar `/scan` is unchanged and still feeds AMCL.
+
+`navigation.launch.py` runs the node with `sim_vlp16`, and both costmaps
+have a `lidar_layer` (STVL) fed by `/lidar/obstacles`:
+
+- marking: points 0.05-2.0 m above the floor, i.e. obstacles under the
+  0.46 m scan plane such as the 0.18 m blocking pallet, which previously only
+  the camera detection layer could see;
+- clearing: a 3D-LiDAR frustum (+-15 deg). Voxels the sensor currently sees
+  but no longer hits decay fast; voxels under the lowest beam (a pallet top
+  closer than ~1.1 m) persist for `voxel_decay` (15 s) instead of vanishing
+  as the robot approaches;
+- near-range filter: `sim_vlp16` drops points within 0.40 m horizontally
+  (`crop.min_radius`, the 2D scan's `range_min`). Docked at HOME the station
+  face is 0.35 m from the centre; the planar scan never saw it, but oblique
+  3D returns with 1 cm noise landed in the cell under the footprint edge and
+  the robot could not leave the dock (2/2 runs failed their first pickup);
+- footprint clearing on, for the same reason.
+
+Full M01-M04 missions (GPU rendering, ground truth from the simulator):
+
+| | before (4 runs, planar LiDAR only) | after (3 runs, 16-ring layer) |
+|---|---|---|
+| missions completed | 4/4 | 3/3 |
+| navigation failures | 0 | 0 |
+| docks validated first try | 16/16 | 12/12 |
+| mission time | 346-403 s | 349-350 s |
+| robot touched the blocking pallet | **2/4 runs** (7.5-8.3 s wheel slip) | **0/3**, min clearance 0.66-1.70 m |
+
+The node processes the ~14k-point simulated scans in about 4 ms per frame.
 
 ## Benchmark
 
@@ -88,7 +126,12 @@ Clustering results are identical across all rows (24,991 obstacle points,
 
 ## Limitations
 
-- The warehouse simulator's LiDAR is a single plane: no ground returns and
-  nothing below 0.47 m. Ground removal is only exercised on KITTI-like data.
+- The simulated 16-ring LiDAR is ideal: 1 cm Gaussian range noise, no
+  motion distortion, dropouts or reflectivity effects.
+- Leaving the HOME dock is slow and sometimes needs Spin/BackUp recoveries:
+  docked, the robot centre is 3 cm from the dock's inscribed-inflation zone.
+  Runs with the 16-ring layer had 3-5 such recoveries (0-1 before), but an
+  A/B test with the layer disabled at runtime showed the same, so it is not
+  attributed to the layer. Not fixed.
 - The voxel map and each cluster's index list are still allocated per frame.
 - Clusters are axis-aligned boxes, without tracking or classification.

@@ -11,6 +11,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     share = Path(get_package_share_directory('navigation_bringup'))
+    perception = Path(get_package_share_directory('perception_core'))
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     params_file = LaunchConfiguration('params_file')
@@ -34,6 +35,16 @@ def generate_launch_description():
             'params_file',
             default_value=str(share / 'config' / 'nav2_params.yaml'),
         ),
+        DeclareLaunchArgument(
+            'lidar_obstacles_params',
+            default_value=str(perception / 'config' / 'sim_vlp16.yaml'),
+            description='pointcloud_preprocess profile producing /lidar/obstacles.'),
+        # Ground-removed multi-layer LiDAR points for the costmaps' lidar
+        # layers: they see obstacles under the 2D scan plane (pallets).
+        Node(package='perception_core', executable='pointcloud_preprocess_node',
+             name='pointcloud_preprocess', output='screen',
+             parameters=[LaunchConfiguration('lidar_obstacles_params'),
+                         {'use_sim_time': use_sim_time}]),
         Node(package='nav2_controller', executable='controller_server',
              name='controller_server', output='screen', parameters=common,
              remappings=[('cmd_vel', 'cmd_vel_nav')]),

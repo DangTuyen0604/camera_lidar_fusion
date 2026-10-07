@@ -40,6 +40,25 @@ class LidarConfig:
     noise_stddev: float = 0.001
 
 
+@dataclass
+class Lidar3dConfig:
+    """
+    Multi-layer LiDAR on the same mount, VLP-16-like.
+
+    The planar scan stays the 2D sensor for AMCL and the costmaps; this one
+    also sees the floor and anything below the 0.47 m scan plane, such as a
+    0.18 m pallet.
+    """
+
+    channels: int = 16
+    samples: int = 900
+    min_elevation_deg: float = -15.0
+    max_elevation_deg: float = 15.0
+    range_min: float = 0.40
+    range_max: float = 30.0
+    noise_stddev: float = 0.01
+
+
 def yaw_to_quat(yaw):
     return np.array([math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2)])
 
@@ -54,9 +73,10 @@ class WarehouseSim:
 
     def __init__(self, scene_xml, world_sdf=None, model_paths=(), meshdir=None,
                  entity_models=None, pool_size=4, spawn=(0.0, -4.0, 0.0),
-                 drive=None, lidar=None, seed=0):
+                 drive=None, lidar=None, lidar_3d=None, seed=0):
         self.drive = drive or DiffDriveConfig()
         self.lidar_cfg = lidar or LidarConfig()
+        self.lidar_3d_cfg = lidar_3d
         self.rng = np.random.default_rng(seed)
 
         spec = mujoco.MjSpec.from_file(str(scene_xml))
@@ -120,6 +140,16 @@ class WarehouseSim:
         # returns then match the static map built from the same geometry.
         self._ray_group = np.zeros(6, dtype=np.uint8)
         self._ray_group[sdf_loader.COLLISION_GROUP] = 1
+        if lidar_3d is not None:
+            elevations = np.radians(np.linspace(
+                lidar_3d.min_elevation_deg, lidar_3d.max_elevation_deg, lidar_3d.channels))
+            azimuths = np.linspace(-math.pi, math.pi, lidar_3d.samples, endpoint=False)
+            elevation, azimuth = np.meshgrid(elevations, azimuths, indexing='ij')
+            self._ray_local_3d = np.stack([
+                np.cos(elevation) * np.cos(azimuth), np.cos(elevation) * np.sin(azimuth),
+                np.sin(elevation)], axis=-1).reshape(-1, 3)
+            self.lidar_3d_rings = np.repeat(
+                np.arange(lidar_3d.channels, dtype=np.uint16), lidar_3d.samples)
 
         self.cmd = np.zeros(2)       # requested (v, w)
         self.applied = np.zeros(2)   # acceleration-limited (v, w)
@@ -238,6 +268,25 @@ class WarehouseSim:
         invalid = (geom_ids < 0) | (ranges < cfg.range_min) | (ranges > cfg.range_max)
         ranges[invalid] = np.inf
         return ranges.astype(np.float32)
+
+    def scan_3d(self):
+        """Return (points in lidar_link [N x 3] float32, ring [N] uint16) of valid returns."""
+        cfg = self.lidar_3d_cfg
+        if cfg is None:
+            raise RuntimeError('WarehouseSim was created without a 3D LiDAR')
+        count = len(self._ray_local_3d)
+        origin = self.data.site_xpos[self.lidar_site].copy()
+        rotation = self.data.site_xmat[self.lidar_site].reshape(3, 3)
+        directions = (self._ray_local_3d @ rotation.T).ravel()
+        distances = np.full(count, -1.0)
+        geom_ids = np.full(count, -1, dtype=np.int32)
+        mujoco.mj_multiRay(self.model, self.data, origin, directions,
+                           self._ray_group, 1, self.base_id, geom_ids, distances,
+                           None, count, cfg.range_max)
+        ranges = distances + self.rng.normal(0.0, cfg.noise_stddev, count)
+        valid = (geom_ids >= 0) & (ranges >= cfg.range_min) & (ranges <= cfg.range_max)
+        points = self._ray_local_3d[valid] * ranges[valid, None]
+        return points.astype(np.float32), self.lidar_3d_rings[valid]
 
     # ---------------------------------------------------------------- entities
     def entity_models(self):

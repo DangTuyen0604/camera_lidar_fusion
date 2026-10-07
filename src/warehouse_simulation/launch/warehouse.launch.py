@@ -36,6 +36,9 @@ def generate_launch_description():
             'update_period_sec', default_value='0.20',
             description='Scenario motion/truth update period in seconds.'),
         DeclareLaunchArgument(
+            'lidar_3d_channels', default_value='16',
+            description='Rings of the simulated multi-layer LiDAR (0 = planar only).'),
+        DeclareLaunchArgument(
             'publish_fused_detections', default_value='true',
             description=(
                 'Publish deterministic scenario truth on the live fusion '
@@ -50,6 +53,7 @@ def generate_launch_description():
                 'spawn_x': '0.0',
                 'spawn_y': '-4.0',
                 'spawn_yaw': '0.0',
+                'lidar_3d_channels': LaunchConfiguration('lidar_3d_channels'),
             }.items()),
         Node(package='warehouse_simulation', executable='scenario_runner',
              condition=IfCondition(use_scenario), output='screen',

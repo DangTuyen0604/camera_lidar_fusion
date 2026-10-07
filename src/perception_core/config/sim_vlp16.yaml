@@ -1,0 +1,32 @@
+# MuJoCo warehouse robot, simulated 16-ring LiDAR (+-15 deg, 900 steps) on
+# lidar_link, 0.46 m above the floor. Processed in base_footprint so the
+# floor is z = 0; published back in lidar_link because the costmap's STVL
+# layer takes the sensor origin for its LiDAR clearing frustum from the
+# message frame.
+pointcloud_preprocess:
+  ros__parameters:
+    use_sim_time: true
+    input_topic: /lidar/points_3d
+    target_frame: base_footprint
+    output_frame: sensor
+    # Below 2 m: the sim has no ceiling; nothing above can block the robot.
+    crop.minimum: [-12.0, -12.0, -0.3]
+    crop.maximum: [12.0, 12.0, 2.0]
+    # Same near range as the 2D scan's range_min. Docked, the station face is
+    # 0.35 m from the centre (3 cm from the body); the planar scan never saw
+    # it and the static map covers it, but 3D returns with 1 cm noise landed
+    # in the costmap cell under the footprint edge, so the robot could
+    # neither turn nor back out of the dock.
+    crop.min_radius: 0.40
+    voxel_size: 0.05
+    ground.enabled: true
+    ground.distance_threshold: 0.04
+    ground.max_iterations: 60
+    ground.max_slope_deg: 5.0
+    ground.min_height: -0.08
+    ground.max_height: 0.08
+    ground.min_inlier_ratio: 0.10
+    clustering.enabled: true
+    clustering.tolerance: 0.3
+    clustering.min_points: 5
+    clustering.max_points: 20000

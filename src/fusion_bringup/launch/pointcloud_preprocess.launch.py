@@ -1,7 +1,7 @@
 """
 Run the C++ LiDAR preprocessing node with a per-sensor parameter profile.
 
-sensor_profile picks config/pointcloud_preprocess/<name>.yaml (kitti_hdl64,
+sensor_profile picks perception_core's config/<name>.yaml (kitti_hdl64,
 sim_planar, sim_vlp16, custom_lidar, or your own copy); params_file
 overrides it with any path. use_composition loads the node into a component
 container with intra-process communication enabled.
@@ -18,11 +18,11 @@ from launch_ros.descriptions import ComposableNode
 
 
 def _nodes(context):
-    share = Path(get_package_share_directory('fusion_bringup'))
+    share = Path(get_package_share_directory('perception_core'))
     params_file = LaunchConfiguration('params_file').perform(context)
     if not params_file:
         profile = LaunchConfiguration('sensor_profile').perform(context)
-        params_file = str(share / 'config' / 'pointcloud_preprocess' / f'{profile}.yaml')
+        params_file = str(share / 'config' / f'{profile}.yaml')
     if not Path(params_file).is_file():
         raise RuntimeError(f'pointcloud_preprocess profile not found: {params_file}')
     if LaunchConfiguration('use_composition').perform(context) == 'true':

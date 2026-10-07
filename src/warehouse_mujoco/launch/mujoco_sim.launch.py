@@ -24,6 +24,8 @@ def generate_launch_description():
         ('use_robot_state_pub', 'true', 'Start robot_state_publisher.'),
         ('enable_camera', 'true', 'Render /camera/image_raw (needs OpenGL).'),
         ('real_time_factor', '1.0', 'Simulation speed; 0 runs as fast as possible.'),
+        ('lidar_3d_channels', '0',
+         'Rings of the multi-layer LiDAR on /lidar/points_3d (0 = disabled).'),
         ('spawn_x', '0.0', ''), ('spawn_y', '-4.0', ''), ('spawn_yaw', '0.0', ''),
     ]
     return LaunchDescription([
@@ -40,6 +42,8 @@ def generate_launch_description():
                     LaunchConfiguration('enable_camera'), value_type=bool),
                 'real_time_factor': ParameterValue(
                     LaunchConfiguration('real_time_factor'), value_type=float),
+                'lidar_3d_channels': ParameterValue(
+                    LaunchConfiguration('lidar_3d_channels'), value_type=int),
                 'spawn_x': ParameterValue(LaunchConfiguration('spawn_x'), value_type=float),
                 'spawn_y': ParameterValue(LaunchConfiguration('spawn_y'), value_type=float),
                 'spawn_yaw': ParameterValue(LaunchConfiguration('spawn_yaw'), value_type=float),

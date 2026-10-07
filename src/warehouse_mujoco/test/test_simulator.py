@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from warehouse_mujoco import sdf_loader
-from warehouse_mujoco.simulator import WarehouseSim
+from warehouse_mujoco.simulator import Lidar3dConfig, WarehouseSim
 
 PACKAGE = Path(__file__).resolve().parents[1]
 SRC = PACKAGE.parent
@@ -93,6 +93,35 @@ def test_lidar_sees_dock_and_spawned_worker(sim):
     sim.delete_entity('worker_a')
     sim.step(1)
     assert sim.scan()[0] == pytest.approx(behind, abs=0.02)
+
+
+def test_3d_lidar_sees_floor_and_low_pallet_the_planar_scan_misses():
+    models = WAREHOUSE / 'models'
+    sim = WarehouseSim(
+        PACKAGE / 'mjcf' / 'scene.xml', WAREHOUSE / 'worlds' / 'warehouse.sdf',
+        [models], MESHES, {'pallet': models / 'pallet' / 'model.sdf'}, pool_size=1,
+        lidar_3d=Lidar3dConfig())
+    sim.reset(0.0, 0.0, 0.0)  # centre aisle, facing +x
+    sim.step(200)
+    sim.spawn_entity('pallet_a', 'pallet', [2.0, 0.0, 0.10], [1, 0, 0, 0])  # 0.18 m tall
+    sim.step(1)
+
+    points, rings = sim.scan_3d()
+    assert len(points) == len(rings) > 0
+    origin = sim.data.site_xpos[sim.lidar_site]
+    rotation = sim.data.site_xmat[sim.lidar_site].reshape(3, 3)
+    world = points.astype(float) @ rotation.T + origin
+    # The lowest ring reaches the floor; nothing is below it.
+    floor = world[rings == 0]
+    assert np.median(np.abs(floor[:, 2] - sim.ground_z)) < 0.03
+    assert world[:, 2].min() > sim.ground_z - 0.05
+    # The pallet (x 1.4..2.6, |y| < 0.4, top 0.18 m) is in the 3D cloud ...
+    on_pallet = ((world[:, 0] > 1.35) & (world[:, 0] < 2.65) & (np.abs(world[:, 1]) < 0.45)
+                 & (world[:, 2] > sim.ground_z + 0.03) & (world[:, 2] < sim.ground_z + 0.25))
+    assert on_pallet.sum() >= 10
+    # ... but the 0.47 m scan plane passes over it.
+    front = sim.scan()[np.argmin(np.abs(sim.lidar_angles))]
+    assert front > 3.0
 
 
 def test_entity_pool_lifecycle(sim):

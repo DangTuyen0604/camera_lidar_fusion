@@ -17,7 +17,8 @@ PointCloudFilter::PointCloudFilter(PointCloudFilterParameters parameters)
   if (!parameters_.minimum.allFinite() || !parameters_.maximum.allFinite() ||
     (parameters_.maximum.array() <= parameters_.minimum.array()).any() ||
     !std::isfinite(parameters_.minimum_intensity) ||
-    !std::isfinite(parameters_.voxel_size) || parameters_.voxel_size < 0.0)
+    !std::isfinite(parameters_.voxel_size) || parameters_.voxel_size < 0.0 ||
+    !std::isfinite(parameters_.minimum_radius) || parameters_.minimum_radius < 0.0)
   {
     throw std::invalid_argument("Invalid point cloud filter parameters");
   }
@@ -36,6 +37,7 @@ void PointCloudFilter::filter(
 {
   output.clear();
   output.reserve(points.size());
+  const double minimum_radius_sq = parameters_.minimum_radius * parameters_.minimum_radius;
   std::unordered_map<std::uint64_t, std::size_t, GridKeyHash> voxels;
   if (parameters_.voxel_size > 0.0) {
     voxels.reserve(points.size());
@@ -45,7 +47,8 @@ void PointCloudFilter::filter(
     if (!point.position.allFinite() || !std::isfinite(point.intensity) ||
       point.intensity < parameters_.minimum_intensity ||
       (point.position.array() < parameters_.minimum.array()).any() ||
-      (point.position.array() > parameters_.maximum.array()).any())
+      (point.position.array() > parameters_.maximum.array()).any() ||
+      point.position.head<2>().squaredNorm() < minimum_radius_sq)
     {
       continue;
     }

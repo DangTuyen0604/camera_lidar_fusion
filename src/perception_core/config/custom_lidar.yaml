@@ -15,6 +15,9 @@ pointcloud_preprocess:
     # and returns too far away to matter for navigation.
     crop.minimum: [-20.0, -20.0, -0.5]
     crop.maximum: [20.0, 20.0, 2.0]
+    # Horizontal near range to drop: the robot's own body and anything it is
+    # docked against. A bit more than the footprint radius.
+    crop.min_radius: 0.40
     # 0 keeps every point. ~0.05-0.1 for 64/128-beam sensors, 0 for 16.
     voxel_size: 0.05
     ground.enabled: true
