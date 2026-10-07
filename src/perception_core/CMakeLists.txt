@@ -5,6 +5,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# colcon passes no build type by default, i.e. -O0: the preprocessing
+# pipeline then took 1.6 s per 130k-point scan instead of ~60 ms at -O2,
+# far over a 10 Hz LiDAR's 100 ms budget.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
 # The static libraries are linked into the shared component library too.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -124,8 +131,13 @@ rclcpp_components_register_node(
   EXECUTABLE pointcloud_preprocess_node
 )
 
+add_executable(pointcloud_preprocess_benchmark src/tools/pointcloud_preprocess_benchmark.cpp)
+target_compile_features(pointcloud_preprocess_benchmark PUBLIC cxx_std_17)
+target_link_libraries(pointcloud_preprocess_benchmark ${PROJECT_NAME})
+
 install(
   TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_ros pointcloud_preprocess_component
+    pointcloud_preprocess_benchmark
     sensor_sync_node object_fusion_node
     lidar_projection_node calibration_monitor_node metrics_node
   EXPORT export_${PROJECT_NAME}

@@ -1,0 +1,16 @@
+# MuJoCo warehouse robot, single-plane 360-beam LiDAR 0.35 m above
+# base_link. One plane has no ground returns, so ground removal is off and
+# the node only crops and clusters.
+pointcloud_preprocess:
+  ros__parameters:
+    use_sim_time: true
+    input_topic: /lidar/points
+    target_frame: base_footprint
+    crop.minimum: [-10.0, -10.0, -0.5]
+    crop.maximum: [10.0, 10.0, 2.5]
+    voxel_size: 0.0
+    ground.enabled: false
+    clustering.enabled: true
+    clustering.tolerance: 0.3
+    clustering.min_points: 3
+    clustering.max_points: 2000

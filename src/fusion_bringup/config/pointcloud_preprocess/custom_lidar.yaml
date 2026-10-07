@@ -1,0 +1,35 @@
+# Template for your own LiDAR. Copy, rename (e.g. ouster_os1_32.yaml) and
+# pass it as sensor_profile:=<name> to pointcloud_preprocess.launch.py.
+#
+# The node reads any PointCloud2 layout (float/integer intensity, either
+# byte order, padded organized clouds), so only these values change.
+pointcloud_preprocess:
+  ros__parameters:
+    # Topic your driver publishes; its header.frame_id must be in TF.
+    input_topic: /points
+    # Floor-level frame of the robot. Processing there makes every height
+    # below independent of how high or tilted the sensor is mounted.
+    # "" keeps the sensor frame (then heights are relative to the sensor).
+    target_frame: base_footprint
+    # Region of interest in target_frame [m]: drop the robot's own body
+    # and returns too far away to matter for navigation.
+    crop.minimum: [-20.0, -20.0, -0.5]
+    crop.maximum: [20.0, 20.0, 2.0]
+    # 0 keeps every point. ~0.05-0.1 for 64/128-beam sensors, 0 for 16.
+    voxel_size: 0.05
+    ground.enabled: true
+    # Point-to-plane distance still counted as floor; above sensor noise.
+    ground.distance_threshold: 0.08
+    ground.max_iterations: 100
+    # Steepest ramp the robot drives on.
+    ground.max_slope_deg: 10.0
+    # The fitted plane must cross the origin within this height band.
+    ground.min_height: -0.15
+    ground.max_height: 0.15
+    ground.min_inlier_ratio: 0.10
+    clustering.enabled: true
+    # Largest gap inside one object; keep below the narrowest gap between
+    # objects you need separated. Grows with range on sparse sensors.
+    clustering.tolerance: 0.3
+    clustering.min_points: 5
+    clustering.max_points: 20000

@@ -1,0 +1,21 @@
+# KITTI Velodyne HDL-64E (~120k points/scan, 10 Hz), mounted 1.73 m above
+# the road. The player publishes no base frame, so the cloud stays in the
+# sensor frame and the ground band is expressed relative to the sensor.
+pointcloud_preprocess:
+  ros__parameters:
+    input_topic: /kitti/velodyne/points
+    target_frame: ""
+    crop.minimum: [-40.0, -20.0, -2.5]
+    crop.maximum: [40.0, 20.0, 1.0]
+    voxel_size: 0.10
+    ground.enabled: true
+    ground.distance_threshold: 0.15
+    ground.max_iterations: 100
+    ground.max_slope_deg: 10.0
+    ground.min_height: -2.0
+    ground.max_height: -1.4
+    ground.min_inlier_ratio: 0.10
+    clustering.enabled: true
+    clustering.tolerance: 0.5
+    clustering.min_points: 10
+    clustering.max_points: 20000

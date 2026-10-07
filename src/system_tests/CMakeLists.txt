@@ -24,6 +24,10 @@ if(BUILD_TESTING)
     test/test_stage3_safety_config.py
   )
   ament_add_pytest_test(
+    test_pointcloud_preprocess_profiles
+    test/test_pointcloud_preprocess_profiles.py
+  )
+  ament_add_pytest_test(
     test_gate12_14_artifacts
     test/test_gate12_14_artifacts.py
   )

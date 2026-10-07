@@ -6,35 +6,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include "perception_core/grid_key.hpp"
+
 namespace perception_core
 {
-namespace
-{
-
-struct VoxelKey
-{
-  std::int64_t x;
-  std::int64_t y;
-  std::int64_t z;
-
-  bool operator==(const VoxelKey & other) const
-  {
-    return x == other.x && y == other.y && z == other.z;
-  }
-};
-
-struct VoxelKeyHash
-{
-  std::size_t operator()(const VoxelKey & key) const
-  {
-    const auto hash_x = std::hash<std::int64_t>{}(key.x);
-    const auto hash_y = std::hash<std::int64_t>{}(key.y);
-    const auto hash_z = std::hash<std::int64_t>{}(key.z);
-    return hash_x ^ (hash_y << 1U) ^ (hash_z << 2U);
-  }
-};
-
-}  // namespace
 
 PointCloudFilter::PointCloudFilter(PointCloudFilterParameters parameters)
 : parameters_(std::move(parameters))
@@ -61,7 +36,10 @@ void PointCloudFilter::filter(
 {
   output.clear();
   output.reserve(points.size());
-  std::unordered_map<VoxelKey, std::size_t, VoxelKeyHash> voxels;
+  std::unordered_map<std::uint64_t, std::size_t, GridKeyHash> voxels;
+  if (parameters_.voxel_size > 0.0) {
+    voxels.reserve(points.size());
+  }
 
   for (const auto & point : points) {
     if (!point.position.allFinite() || !std::isfinite(point.intensity) ||
@@ -77,10 +55,10 @@ void PointCloudFilter::filter(
       continue;
     }
 
-    const VoxelKey key{
+    const std::uint64_t key = packGridKey(
       static_cast<std::int64_t>(std::floor(point.position.x() / parameters_.voxel_size)),
       static_cast<std::int64_t>(std::floor(point.position.y() / parameters_.voxel_size)),
-      static_cast<std::int64_t>(std::floor(point.position.z() / parameters_.voxel_size))};
+      static_cast<std::int64_t>(std::floor(point.position.z() / parameters_.voxel_size)));
     const auto [iterator, inserted] = voxels.emplace(key, output.size());
     if (inserted) {
       output.push_back(point);
