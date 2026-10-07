@@ -2,7 +2,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <deque>
 #include <iomanip>
 #include <limits>
@@ -22,11 +21,11 @@
 #include "fusion_interfaces/msg/fused_detection_array.hpp"
 #include "perception_core/lidar_projector.hpp"
 #include "perception_core/object_depth_estimator.hpp"
+#include "perception_core/pointcloud_io.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
-#include "sensor_msgs/msg/point_field.hpp"
 #include "tf2/exceptions.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
@@ -77,77 +76,6 @@ void appendBounded(
   while (messages.size() > maximum_size) {
     messages.pop_front();
   }
-}
-
-const sensor_msgs::msg::PointField * findField(
-  const sensor_msgs::msg::PointCloud2 & cloud,
-  const std::string & name)
-{
-  const auto iterator = std::find_if(
-    cloud.fields.begin(), cloud.fields.end(),
-    [&name](const sensor_msgs::msg::PointField & field) {return field.name == name;});
-  return iterator == cloud.fields.end() ? nullptr : &(*iterator);
-}
-
-float readFloat32(const std::uint8_t * data, bool is_bigendian)
-{
-  std::uint8_t bytes[sizeof(float)];
-  std::memcpy(bytes, data, sizeof(float));
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-  if (is_bigendian) {
-    std::reverse(bytes, bytes + sizeof(float));
-  }
-#else
-  if (!is_bigendian) {
-    std::reverse(bytes, bytes + sizeof(float));
-  }
-#endif
-  float value;
-  std::memcpy(&value, bytes, sizeof(float));
-  return value;
-}
-
-std::vector<PointXYZI> readPointCloud(const sensor_msgs::msg::PointCloud2 & cloud)
-{
-  const auto * x_field = findField(cloud, "x");
-  const auto * y_field = findField(cloud, "y");
-  const auto * z_field = findField(cloud, "z");
-  const auto * intensity_field = findField(cloud, "intensity");
-  const std::uint8_t float32 = sensor_msgs::msg::PointField::FLOAT32;
-  if (x_field == nullptr || y_field == nullptr || z_field == nullptr ||
-    x_field->datatype != float32 || y_field->datatype != float32 ||
-    z_field->datatype != float32 || cloud.point_step == 0)
-  {
-    throw std::runtime_error("PointCloud2 must contain FLOAT32 x, y and z fields");
-  }
-  const auto field_fits = [&cloud](const sensor_msgs::msg::PointField * field) {
-      return field != nullptr && field->offset + sizeof(float) <= cloud.point_step;
-    };
-  if (!field_fits(x_field) || !field_fits(y_field) || !field_fits(z_field) ||
-    (intensity_field != nullptr &&
-    (intensity_field->datatype != float32 || !field_fits(intensity_field))))
-  {
-    throw std::runtime_error("PointCloud2 field offsets exceed point_step");
-  }
-
-  const std::size_t count = static_cast<std::size_t>(cloud.width) * cloud.height;
-  if (cloud.data.size() < count * cloud.point_step) {
-    throw std::runtime_error("PointCloud2 data buffer is smaller than its declared layout");
-  }
-  std::vector<PointXYZI> points;
-  points.reserve(count);
-  for (std::size_t index = 0; index < count; ++index) {
-    const std::uint8_t * data = cloud.data.data() + index * cloud.point_step;
-    PointXYZI point;
-    point.position = Eigen::Vector3d(
-      readFloat32(data + x_field->offset, cloud.is_bigendian),
-      readFloat32(data + y_field->offset, cloud.is_bigendian),
-      readFloat32(data + z_field->offset, cloud.is_bigendian));
-    point.intensity = intensity_field == nullptr ? 0.0 :
-      readFloat32(data + intensity_field->offset, cloud.is_bigendian);
-    points.push_back(point);
-  }
-  return points;
 }
 
 Eigen::Matrix4d transformMatrix(const geometry_msgs::msg::TransformStamped & transform)

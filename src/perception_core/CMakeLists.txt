@@ -14,6 +14,7 @@ find_package(message_filters REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -37,6 +38,12 @@ target_include_directories(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC Eigen3::Eigen yaml-cpp)
 
+# ROS message adapters, kept apart so the algorithms above stay ROS-free.
+add_library(${PROJECT_NAME}_ros src/ros/pointcloud_io.cpp)
+target_compile_features(${PROJECT_NAME}_ros PUBLIC cxx_std_17)
+target_link_libraries(${PROJECT_NAME}_ros PUBLIC ${PROJECT_NAME})
+ament_target_dependencies(${PROJECT_NAME}_ros PUBLIC sensor_msgs std_msgs)
+
 add_executable(sensor_sync_node src/nodes/sensor_sync_node.cpp)
 target_compile_features(sensor_sync_node PUBLIC cxx_std_17)
 target_link_libraries(sensor_sync_node ${PROJECT_NAME})
@@ -51,7 +58,7 @@ ament_target_dependencies(
 
 add_executable(object_fusion_node src/nodes/object_fusion_node.cpp)
 target_compile_features(object_fusion_node PUBLIC cxx_std_17)
-target_link_libraries(object_fusion_node ${PROJECT_NAME} ${OpenCV_LIBRARIES})
+target_link_libraries(object_fusion_node ${PROJECT_NAME}_ros ${OpenCV_LIBRARIES})
 target_include_directories(object_fusion_node PRIVATE ${OpenCV_INCLUDE_DIRS})
 ament_target_dependencies(
   object_fusion_node
@@ -67,7 +74,7 @@ ament_target_dependencies(
 
 add_executable(lidar_projection_node src/nodes/lidar_projection_node.cpp)
 target_compile_features(lidar_projection_node PUBLIC cxx_std_17)
-target_link_libraries(lidar_projection_node ${PROJECT_NAME} ${OpenCV_LIBRARIES})
+target_link_libraries(lidar_projection_node ${PROJECT_NAME}_ros ${OpenCV_LIBRARIES})
 target_include_directories(lidar_projection_node PRIVATE ${OpenCV_INCLUDE_DIRS})
 ament_target_dependencies(
   lidar_projection_node
@@ -90,7 +97,7 @@ target_link_libraries(metrics_node ${PROJECT_NAME})
 ament_target_dependencies(metrics_node fusion_interfaces rclcpp)
 
 install(
-  TARGETS ${PROJECT_NAME} sensor_sync_node object_fusion_node
+  TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_ros sensor_sync_node object_fusion_node
     lidar_projection_node calibration_monitor_node metrics_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -100,7 +107,7 @@ install(
 install(DIRECTORY include/ DESTINATION include)
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
-ament_export_dependencies(Eigen3 yaml-cpp)
+ament_export_dependencies(Eigen3 sensor_msgs std_msgs yaml-cpp)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -129,6 +136,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_pointcloud_filter test/test_pointcloud_filter.cpp)
   target_link_libraries(test_pointcloud_filter ${PROJECT_NAME})
+
+  ament_add_gtest(test_pointcloud_io test/test_pointcloud_io.cpp)
+  target_link_libraries(test_pointcloud_io ${PROJECT_NAME}_ros)
 
   ament_add_gtest(test_timestamp_sync test/test_timestamp_sync.cpp)
   target_link_libraries(test_timestamp_sync ${PROJECT_NAME})

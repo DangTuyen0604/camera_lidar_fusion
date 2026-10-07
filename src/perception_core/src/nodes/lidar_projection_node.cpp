@@ -15,11 +15,11 @@
 #include "message_filters/sync_policies/approximate_time.hpp"
 #include "message_filters/synchronizer.hpp"
 #include "perception_core/lidar_projector.hpp"
+#include "perception_core/pointcloud_io.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
-#include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "tf2/exceptions.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
@@ -46,33 +46,6 @@ Eigen::Matrix4d transformMatrix(const geometry_msgs::msg::TransformStamped & tra
     throw std::runtime_error("TF contains non-finite values");
   }
   return matrix;
-}
-
-std::vector<PointXYZI> readPoints(const sensor_msgs::msg::PointCloud2 & cloud)
-{
-  sensor_msgs::PointCloud2ConstIterator<float> x(cloud, "x");
-  sensor_msgs::PointCloud2ConstIterator<float> y(cloud, "y");
-  sensor_msgs::PointCloud2ConstIterator<float> z(cloud, "z");
-  std::vector<PointXYZI> points;
-  points.reserve(static_cast<std::size_t>(cloud.width) * cloud.height);
-
-  const bool has_intensity = std::any_of(
-    cloud.fields.begin(), cloud.fields.end(),
-    [](const sensor_msgs::msg::PointField & field) {
-      return field.name == "intensity";
-    });
-  if (!has_intensity) {
-    for (; x != x.end(); ++x, ++y, ++z) {
-      points.push_back({Eigen::Vector3d(*x, *y, *z), 0.0});
-    }
-    return points;
-  }
-
-  sensor_msgs::PointCloud2ConstIterator<float> intensity(cloud, "intensity");
-  for (; x != x.end(); ++x, ++y, ++z, ++intensity) {
-    points.push_back({Eigen::Vector3d(*x, *y, *z), *intensity});
-  }
-  return points;
 }
 
 cv::Scalar depthColor(double depth, double minimum, double maximum)
@@ -160,7 +133,7 @@ private:
 
       const LidarProjector projector(std::move(calibration));
       const auto projected = projector.project(
-        readPoints(*cloud), static_cast<int>(camera_info->width),
+        readPointCloud(*cloud), static_cast<int>(camera_info->width),
         static_cast<int>(camera_info->height), minimum_depth_, maximum_depth_);
       auto converted = cv_bridge::toCvCopy(image, "bgr8");
       for (const auto & point : projected) {
