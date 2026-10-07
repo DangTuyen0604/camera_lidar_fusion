@@ -24,3 +24,5 @@ benchmarks/results/
 *.mp4
 *.mkv
 *.avi
+.docker_ws/
+*.egg-info/

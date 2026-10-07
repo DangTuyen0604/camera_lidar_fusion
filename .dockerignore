@@ -1,0 +1,6 @@
+.git/
+.docker_ws/
+.venv/
+build/
+install/
+log/

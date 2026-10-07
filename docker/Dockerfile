@@ -7,14 +7,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3-pip \
       python3-venv \
       libosmesa6 \
+      ros-jazzy-rmw-cyclonedds-cpp \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 COPY . /workspace
 
 RUN source /opt/ros/jazzy/setup.bash \
+    && apt-get update \
     && rosdep update \
     && rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y \
+    && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir --break-system-packages 'mujoco>=3.2,<4' \
     && python3 -m venv --system-site-packages /opt/fusion-venv \
     && /opt/fusion-venv/bin/pip install --no-cache-dir -r docker/requirements-runtime.txt \
