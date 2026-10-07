@@ -1,4 +1,5 @@
-"""Stop and wait for moving obstacles detected in the LiDAR scan.
+"""
+Stop and wait for moving obstacles detected in the LiDAR scan.
 
 Velocity gate in the Nav2 chain between the velocity smoother and Collision
 Monitor (cmd_vel_smoothed -> cmd_vel_yield), so navigation, recoveries and
@@ -12,21 +13,20 @@ in odom; anything static (walls, racks, a parked pallet) never triggers it.
 from collections import deque
 import math
 
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import OccupancyGrid, Odometry
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
+from rclpy.qos import DurabilityPolicy, qos_profile_sensor_data, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time
 from scipy.ndimage import distance_transform_edt
-
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 
-from warehouse_mission_manager.motion_tracker import MotionTracker, TrackerConfig, clusters
+from warehouse_mission_manager.motion_tracker import clusters, MotionTracker, TrackerConfig
 from warehouse_mission_manager.yield_gate import YieldConfig, YieldGate
 
 
@@ -212,7 +212,7 @@ class DynamicYieldNode(Node):
             moving = track.recently_moving(now, self.tracker.config.memory_time)
             marker = Marker()
             marker.header.frame_id, marker.header.stamp = self.odom_frame, stamp
-            marker.ns, marker.id, marker.type = 'tracks', track.id, Marker.CYLINDER
+            marker.ns, marker.id, marker.type = 'tracks', track.track_id, Marker.CYLINDER
             marker.pose.position.x, marker.pose.position.y = map(float, track.position)
             marker.pose.position.z = 0.5
             marker.pose.orientation.w = 1.0

@@ -1,17 +1,17 @@
+import math
 from pathlib import Path
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
-import math
 
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
+import pytest
 from warehouse_mission_manager.cargo_manager import CargoManager
 from warehouse_mission_manager.docking_controller import DockingController
 from warehouse_mission_manager.mission_manager import (
     MissionManager, navigation_succeeded)
 from warehouse_mission_manager.mission_state import MissionState
-import pytest
 import yaml
 
 

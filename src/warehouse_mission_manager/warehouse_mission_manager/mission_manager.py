@@ -6,6 +6,8 @@ from pathlib import Path
 from action_msgs.msg import GoalStatus
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped
+from lifecycle_msgs.msg import State
+from lifecycle_msgs.srv import GetState
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.msg import CollisionMonitorState
 from nav_msgs.msg import Odometry
@@ -15,8 +17,6 @@ from rclpy.duration import Duration
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.time import Time
-from lifecycle_msgs.msg import State
-from lifecycle_msgs.srv import GetState
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from tf2_geometry_msgs import do_transform_pose_stamped
@@ -112,7 +112,8 @@ class MissionManager(Node):
         self.cargo_pub.publish(cargo)
 
     def _navigation_ready(self):
-        """Return true only after bt_navigator is lifecycle-active.
+        """
+        Return true only after bt_navigator is lifecycle-active.
 
         An action server may be discoverable while its lifecycle node is still
         inactive.  Waiting for the lifecycle state avoids sending startup goals

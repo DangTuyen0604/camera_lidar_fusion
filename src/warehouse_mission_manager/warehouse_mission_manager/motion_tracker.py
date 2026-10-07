@@ -1,4 +1,5 @@
-"""Detect moving obstacles in a planar LiDAR scan (no ROS, unit tested).
+"""
+Detect moving obstacles in a planar LiDAR scan (no ROS, unit tested).
 
 Pipeline per scan:
 1. Drop returns that lie on the static map (walls, racks): only unmapped
@@ -37,7 +38,7 @@ class TrackerConfig:
 
 @dataclass
 class Track:
-    id: int
+    track_id: int
     position: np.ndarray
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(2))
     stamp: float = 0.0

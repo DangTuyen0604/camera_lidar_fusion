@@ -3,9 +3,9 @@ import math
 import numpy as np
 import pytest
 
-from warehouse_mission_manager.motion_tracker import MotionTracker, TrackerConfig, clusters
+from warehouse_mission_manager.motion_tracker import clusters, MotionTracker, TrackerConfig
 from warehouse_mission_manager.yield_gate import (
-    CLEAR, TIMED_OUT, YIELDING, YieldConfig, YieldGate)
+    CLEAR, TIMED_OUT, YieldConfig, YieldGate, YIELDING)
 
 
 def blob(x, y, n=6, radius=0.15):

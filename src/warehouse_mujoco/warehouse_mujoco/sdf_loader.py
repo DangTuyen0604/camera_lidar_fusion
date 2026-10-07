@@ -74,7 +74,8 @@ def _rgba(visual):
 
 
 def _geometry(element):
-    """Return (mjtGeom, size) for an SDF <geometry>, or None if unsupported.
+    """
+    Return (mjtGeom, size) for an SDF <geometry>, or None if unsupported.
 
     For a <mesh> the size is the mesh <uri> text instead.
     """
@@ -172,7 +173,8 @@ def _material(spec, visual, geom_type, base_dir, model_paths):
 
 def add_model_geoms(body, model, frame=IDENTITY, prefix='', collision_bits=1,
                     spec=None, base_dir=None, model_paths=()):
-    """Add every link visual/collision geometry of an SDF <model> to body.
+    """
+    Add every link visual/collision geometry of an SDF <model> to body.
 
     Meshes and textures are resolved against base_dir (the model's folder)
     or model_paths for model:// URIs and need spec to register the assets.

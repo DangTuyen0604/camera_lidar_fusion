@@ -1,7 +1,7 @@
+import math
 from pathlib import Path
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
-import math
 
 from warehouse_simulation.pedestrian_roaming import RoamingAgent, WaypointGraph
 from warehouse_simulation.scenario_runner import ScenarioRunner

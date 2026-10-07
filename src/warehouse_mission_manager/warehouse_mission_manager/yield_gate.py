@@ -1,4 +1,5 @@
-"""Stop-and-wait decision for moving obstacles (no ROS, unit tested).
+"""
+Stop-and-wait decision for moving obstacles (no ROS, unit tested).
 
 - CLEAR -> YIELDING when a moving obstacle is within stop_distance in the
   direction of travel.  While YIELDING every velocity command becomes zero.
@@ -42,7 +43,8 @@ class YieldGate:
         self._clear_since = None  # when the area last became clear
 
     def update(self, now, obstacles, reversing=False):
-        """Return True if motion may continue.
+        """
+        Return True if motion may continue.
 
         obstacles: (x, y) of moving obstacles in the robot frame (x forward,
         y left); reversing: the command drives backwards, so "ahead" is
