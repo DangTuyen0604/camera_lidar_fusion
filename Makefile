@@ -1,4 +1,4 @@
-.PHONY: audit benchmark build calibration demo navigation perception projection test warehouse
+.PHONY: audit benchmark build calibration navigation perception projection test warehouse
 
 audit:
 	./scripts/run_audit.sh
@@ -26,6 +26,3 @@ warehouse:
 
 benchmark:
 	./scripts/run_benchmarks.sh
-
-demo:
-	./scripts/run_release_demo.sh

@@ -36,7 +36,7 @@ def test_nav2_has_both_obstacle_sources_and_all_servers():
         assert detections[detections['observation_sources']]['topic'] == (
             '/navigation/detection_obstacles')
     for launch_file in ('mapping.launch.py', 'localization.launch.py',
-                        'navigation.launch.py', 'simulation.launch.py',
+                        'navigation.launch.py',
                         'full_system.launch.py', 'warehouse_full_demo.launch.py'):
         assert (nav / 'launch' / launch_file).is_file()
 

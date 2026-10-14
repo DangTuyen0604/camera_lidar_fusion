@@ -1,294 +1,170 @@
-# Camera–LiDAR Fusion Navigation
+# Camera–LiDAR Fusion for AMR Person Safety
 
 [![Build and test](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/build-and-test.yml)
 [![Lint](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml/badge.svg)](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml)
 
-## 1. Project overview
+A warehouse robot drives toward a goal. A worker steps into the aisle. The
+camera finds the worker, the LiDAR measures how far away they are, the fused
+3D position becomes an obstacle in the Nav2 costmap, and the Collision Monitor
+stops the robot. When the worker leaves, the obstacle expires and the robot
+finishes its goal.
 
-ROS 2 project for an autonomous mobile robot (AMR) that combines camera
-detections with LiDAR depth, transforms fused XYZ detections with TF2, and
-publishes expiring obstacles to Nav2 costmaps and Collision Monitor. The
-canonical demo runs the complete chain in a MuJoCo warehouse simulation; KITTI playback is available
-for offline calibration, projection, and perception experiments.
+Everything runs in ROS 2 Jazzy with a MuJoCo warehouse simulation. The fusion
+core is C++ (Eigen, TF2); the same code also runs on KITTI recordings.
 
-The consolidated verification summary is in
-[`FINAL_PROJECT_REPORT.md`](FINAL_PROJECT_REPORT.md).
-
-The final path is real message flow, not direct costmap injection:
-
-`camera + LiDAR -> detection -> fusion -> obstacle bridge -> Nav2 -> AMR`
-
-## 2. Architecture
-
-```mermaid
-flowchart TD
-    Camera[Camera] --> Detection[Detection]
-    Detection --> Fusion[Projection / Fusion]
-    LiDAR[LiDAR] --> Fusion
-    Fusion --> XYZ[Fused XYZ]
-    XYZ --> Bridge[Detection Obstacle Bridge]
-    Bridge --> Nav2[Nav2 costmaps + Collision Monitor]
-    Nav2 --> AMR[AMR]
-
-    MuJoCo[MuJoCo warehouse_mujoco] --> Runtime[clock / odom / tf / scan / camera / point cloud]
-    Runtime --> Nav2
-    Runtime --> RViz[RViz]
+```text
+camera ─► detector ─┐
+                    ├─► sync ─► LiDAR→image projection ─► depth per box ─► fused XYZ
+LiDAR ──────────────┘                                                         │
+                                                                              ▼
+  MuJoCo ◄── /cmd_vel ◄── Collision Monitor ◄── Nav2 costmaps ◄── obstacle bridge
 ```
 
-The safety command chain is:
+## Results
 
-`controller_server -> /cmd_vel_nav -> velocity_smoother ->
-/cmd_vel_smoothed -> collision_monitor -> /cmd_vel -> MuJoCo`
+Canonical scenario (`benchmarks/run_canonical_demo.py`, seed 12012, 3 runs):
+the robot is given a Nav2 goal, a worker is spawned in its path only after it
+starts moving, then removed once the robot has reacted.
 
-## 3. Package structure
+| Metric | Mean | Range over 3 runs |
+|---|---:|---:|
+| Runs that reached the goal without collision | 3/3 | |
+| Worker spawned → Collision Monitor slows/stops the robot | 129 ms | 123–137 ms |
+| Sensor timestamp → fused detection published | 87 ms | 82–90 ms |
+| Camera–LiDAR timestamp offset | 21 ms | 20.9–21.1 ms |
+| Worker removed → obstacle cleared from the costmap | 0.87 s | 0.82–0.95 s |
+| LiDAR points on the worker | | 38–39 |
+| Camera / point cloud / fusion rate | 9.0 / 7.8 / 4.5 Hz | |
 
-| Package/directory | Responsibility |
-|---|---|
-| `fusion_interfaces` | Typed detection, fusion, sync, calibration, and metric messages |
-| `kitti_ros2_player` | KITTI image/point-cloud playback, calibration, and static TF |
-| `yolo_detector` | ONNX detector and deterministic simulation color detector |
-| `perception_core` | Synchronization, projection, depth estimation, fused XYZ, and metrics |
-| `navigation_bridge` | Validation, TF2 transform, obstacle footprint, timeout, and clearing |
-| `navigation_bringup` | Localization, Nav2, costmaps, velocity smoother, Collision Monitor, RViz |
-| `openamrobot_description` | Robot URDF/Xacro and TF links |
-| `warehouse_mujoco` | MuJoCo physics, robot model, sensors and entity services |
-| `warehouse_simulation` | Canonical warehouse world and simulated objects |
-| `warehouse_mission_manager` | Warehouse mission utilities |
-| `fusion_bringup` | Top-level perception and final demo launch files |
-| `system_tests` | Behavioral and live launch tests |
-| `benchmarks`, `experiments` | Reproducible metrics and deterministic fault results |
+Raw per-run data: [`benchmarks/canonical_demo_results.json`](benchmarks/canonical_demo_results.json).
 
-## 4. Requirements
+Two supporting results:
 
-- Ubuntu 24.04 (Noble), x86-64
-- ROS 2 Jazzy Desktop
-- MuJoCo 3.x (`pip install --user --break-system-packages mujoco`; installed by
-  `scripts/install_dependencies.sh`)
-- Nav2, Collision Monitor, laser filters, TF2, OpenCV, Eigen, and yaml-cpp
-- Python 3.12; the optional ONNX/KITTI tools use `requirements.txt`
+- **Obstacles below the scan plane.** A 0.18 m pallet is invisible to the
+  0.46 m-high planar LiDAR. Adding a simulated 16-ring LiDAR with C++ ground
+  removal and a 3D costmap layer took full warehouse missions from robot–pallet
+  contact in 2/4 runs to 0/3 ([docs/pointcloud_preprocess.md](docs/pointcloud_preprocess.md)).
+- **Preprocessing speed.** Profiling the C++ ground removal and clustering on a
+  131k-point synthetic HDL-64 scan cut it from 1645 ms to 21.4 ms per frame
+  (build type, hash function, neighbour caching). The scan is synthetic, not
+  KITTI.
 
-Install system dependencies and the project Python environment:
+## How it works
+
+| Step | What happens | Code |
+|---|---|---|
+| 1. Synchronize | Image, CameraInfo and PointCloud2 are matched with ROS `ApproximateTime`; a triple whose stamps spread wider than the tolerance is dropped and reported on `/fusion/sync_status`. | [`sensor_sync_node.cpp`](src/perception_core/src/nodes/sensor_sync_node.cpp), [`timestamp_sync.cpp`](src/perception_core/src/core/timestamp_sync.cpp) |
+| 2. Detect | 2D boxes from YOLOv8 (ONNX Runtime) on real images, or from a deterministic color detector in simulation. | [`yolo_detector/`](src/yolo_detector/yolo_detector) |
+| 3. Project | Each LiDAR point is moved into the camera frame with TF2 at the image timestamp and projected: `X_c = R_rect · T_cam←lidar · X_l`, `[u v 1]ᵀ ∝ P · X_c`. Points behind the camera or outside the image are dropped. | [`lidar_projector.cpp`](src/perception_core/src/core/lidar_projector.cpp) |
+| 4. Depth per box | Keep points inside the central part of the box, sort by depth, split into clusters at depth gaps, take the nearest cluster with enough points, reject outliers with the median absolute deviation, and report the per-axis median as the object position. Too few points → `valid=false`, never a made-up depth. | [`object_depth_estimator.cpp`](src/perception_core/src/core/object_depth_estimator.cpp), [`object_fusion_node.cpp`](src/perception_core/src/nodes/object_fusion_node.cpp) |
+| 5. Obstacle bridge | Reject invalid, stale (> 0.5 s), future-dated or untransformable detections; transform to `base_link`; publish a class-sized footprint as PointCloud2. After 0.75 s without a detection, publish clearing rays so no ghost obstacle stays behind. | [`detection_obstacle_bridge_node.cpp`](src/navigation_bridge/src/detection_obstacle_bridge_node.cpp) |
+| 6. Nav2 | The obstacle cloud feeds both costmaps and the Collision Monitor. Commands flow `controller_server → velocity_smoother → collision_monitor → /cmd_vel`, so the Collision Monitor has the last word. | [`nav2_stage3_params.yaml`](src/navigation_bringup/config/nav2_stage3_params.yaml) |
+
+More detail: [projection math](docs/projection_math.md),
+[object fusion](docs/object_fusion.md),
+[timestamp synchronization](docs/timestamp_synchronization.md),
+[dynamic obstacles](docs/dynamic_obstacles.md),
+[person safety](docs/person_safety.md).
+
+## Run it
+
+### Ubuntu 24.04 with ROS 2 Jazzy
 
 ```bash
 ./scripts/install_dependencies.sh
-```
-
-The script installs apt/rosdep dependencies and creates `.venv`. Do not source
-`.venv` for normal ROS launch commands; it is intended for standalone tooling.
-
-## 5. Build
-
-From the repository root:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
-colcon build --symlink-install
-source install/setup.bash
-```
-
-For a reproducible clean build:
-
-```bash
-rm -rf build install log
 source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install
 source install/setup.bash
-```
 
-## 6. Run
-
-Canonical one-command demo from a fresh terminal:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-ros2 launch fusion_bringup final_demo.launch.py
-```
-
-This runs the robot's whole working process: the MuJoCo viewer, RViz, a live
-camera window, camera-LiDAR detection and fusion, localization, Nav2 with
-docking, and the M01-M04 warehouse missions started automatically.
-
-In the camera window (`camera_viewer`), press `s` to save the raw frame as PNG
-to `~/camera_dataset` (`camera_save_dir:=...`) for detector training, `d` to
-toggle detection boxes and `q` to close it. Show the fused overlay instead
-with `camera_topic:=/fusion/annotated_image`.
-
-The canonical single-goal benchmark path (no missions or scenario actors) is:
-
-```bash
+# The canonical person-safety scenario (MuJoCo viewer + RViz + camera window)
 ros2 launch fusion_bringup final_demo.launch.py mission:=false
-```
 
-For CI/headless systems:
-
-```bash
-MUJOCO_GL=egl ros2 launch fusion_bringup final_demo.launch.py \
-  mission:=false use_rviz:=false sim_gui:=false camera_view:=false
-```
-
-Run the integrated warehouse mission (M01-M04) with live camera-LiDAR fusion,
-the MuJoCo viewer and RViz:
-
-```bash
-ros2 launch fusion_bringup bringup_sim.launch.py \
-  sim_gui:=true use_rviz:=true mission_autostart:=true
-```
-
-In this launch, the scenario runner creates and moves physical warehouse
-actors but publishes only benchmark ground truth. `/fusion/detections_3d` is
-owned by the live perception pipeline.
-
-Optional KITTI projection demo:
-
-```bash
-./tools/download_kitti.sh
-ros2 launch fusion_bringup projection_demo.launch.py use_rviz:=true
-```
-
-Optional ONNX perception demo expects `models/yolov8n-opencv.onnx`:
-
-```bash
-./scripts/run_perception_demo.sh
-```
-
-## 7. Topics
-
-Canonical simulation interfaces:
-
-| Topic | Type | Purpose |
-|---|---|---|
-| `/camera/image_raw` | `sensor_msgs/msg/Image` | Simulated camera image |
-| `/camera/camera_info` | `sensor_msgs/msg/CameraInfo` | Camera calibration |
-| `/lidar/points` | `sensor_msgs/msg/PointCloud2` | Simulated LiDAR cloud |
-| `/fusion/synced/*` | Image, CameraInfo, PointCloud2 | Time-aligned sensor inputs |
-| `/detections_2d` | `fusion_interfaces/msg/Detection2DArray` | Image detections |
-| `/fusion/detections_3d` | `fusion_interfaces/msg/FusedDetectionArray` | Valid/invalid fused XYZ results |
-| `/fusion/sync_status` | `fusion_interfaces/msg/SyncStatus` | Synchronization health and delay |
-| `/fusion/metrics` | `fusion_interfaces/msg/PipelineMetrics` | Runtime perception metrics |
-| `/navigation/detection_obstacles` | `sensor_msgs/msg/PointCloud2` | Bridge obstacles for Nav2 and Collision Monitor |
-| `/navigation/detection_obstacles/clearing` | `sensor_msgs/msg/PointCloud2` | Costmap clearing rays after expiry |
-| `/scan`, `/scan_filtered` | `sensor_msgs/msg/LaserScan` | Raw and robot-body-filtered scan |
-| `/odom`, `/tf`, `/tf_static`, `/clock` | Standard ROS messages | Localization and simulation time |
-| `/cmd_vel_nav` | `geometry_msgs/msg/Twist` | Controller output |
-| `/cmd_vel_smoothed` | `geometry_msgs/msg/Twist` | Velocity smoother output |
-| `/cmd_vel` | `geometry_msgs/msg/Twist` | Collision-checked command sent to the simulator |
-
-Inspect the live contract with `ros2 topic list -t` and
-`ros2 topic info <topic> --verbose`.
-
-## 8. TF tree
-
-Canonical simulation tree:
-
-```text
-map
-└── odom
-    └── base_footprint
-        └── base_link
-            ├── lidar_link
-            └── camera_link
-                └── camera_optical_frame
-```
-
-Fused detections retain their source frame. The obstacle bridge looks up TF at
-the detection timestamp and transforms them into `base_link`; it never assumes
-a missing camera frame. Verify the live tree with:
-
-```bash
-ros2 run tf2_tools view_frames
-ros2 run tf2_ros tf2_echo base_link camera_optical_frame
-ros2 run tf2_ros tf2_echo base_link lidar_link
-```
-
-KITTI playback uses `velodyne -> camera_optical_frame` from the selected
-calibration file.
-
-## 9. Demo
-
-The one canonical scenario localizes the AMR, sends a Nav2 goal, introduces a
-physical simulated worker after motion begins, observes camera/LiDAR fusion,
-slows or stops through Collision Monitor, expires the lost obstacle, and then
-reaches the goal without collision.
-
-Run it three times and save evidence:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
+# Reproduce the results table (headless, 3 runs)
 python3 benchmarks/run_canonical_demo.py --runs 3
 ```
 
-Results are written to `benchmarks/canonical_demo_results.json` and `.csv`.
-The checked-in baseline records 3/3 consecutive successful runs with seed
-`12012`.
-
-## 10. Tests
+### Any other Linux host (Docker)
 
 ```bash
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-colcon test --event-handlers console_direct+
-colcon test-result --verbose
-git diff --check
+scripts/run_docker_gui.sh ros2 launch fusion_bringup final_demo.launch.py mission:=false
 ```
 
-The suite includes behavioral tests for valid TF transforms, unknown frames,
-stale/zero/future timestamps, invalid and non-finite detections, obstacle
-expiry, synchronization thresholds, and a live final-launch smoke/interface
-test. Optional dataset-dependent tests are skipped when KITTI is absent.
+Add `--gpu` for NVIDIA rendering. Details in [docs/docker.md](docs/docker.md).
 
-Latest clean verification: `306 tests, 0 errors, 0 failures, 34 skipped`.
+### Other entry points
 
-## 11. Benchmark
+| Command | What it shows |
+|---|---|
+| `ros2 launch fusion_bringup final_demo.launch.py` | The full warehouse: four-station pick-and-place missions (M01–M04) with docking, the worker scenario, a pallet that blocks an aisle, and live fusion |
+| `ros2 launch fusion_bringup projection_demo.launch.py use_rviz:=true` | LiDAR projected onto KITTI images (`./tools/download_kitti.sh` first) |
+| `./scripts/run_perception_demo.sh` | YOLOv8 ONNX + fusion on KITTI (needs `models/yolov8n-opencv.onnx`, see [models/README.md](models/README.md)) |
 
-Canonical Gate 12/13 metrics:
+## Tests
 
 ```bash
-python3 benchmarks/run_canonical_demo.py --runs 3
+./scripts/run_tests.sh
 ```
 
-The JSON/CSV output includes camera, point-cloud, detection, and fusion rates;
-mean sync delay; goal duration; reaction latency; obstacle expiry; pipeline
-latency; and minimum clearance. The current three-run mean is documented in
-`benchmarks/canonical_demo_results.json`.
+Unit tests (gtest/pytest) cover the projection, depth estimation,
+synchronization, calibration loading, PointCloud2 parsing, ground removal,
+clustering and the obstacle bridge (stale, future and non-finite inputs,
+unknown frames, expiry). Launch tests start the simulation and check the
+topic, node and TF contract of the canonical stack and the perception
+pipeline. The remaining `system_tests` check that the installed configuration
+keeps the safety settings (Collision Monitor zones, worker and pallet events,
+docking tolerances). KITTI-dependent tests skip when the dataset is not
+downloaded. The full M01–M04 mission test (`test_warehouse_end_to_end`) is
+slow and is run on demand; the CI step meant for it currently selects no
+test.
 
-For the broader scenario matrix:
+## Repository layout
 
-```bash
-python3 benchmarks/run_benchmark.py
-python3 benchmarks/plot_results.py
-```
+Main path:
 
-## 12. Fault injection
+| Package | Role |
+|---|---|
+| `perception_core` | C++: synchronization, projection, depth estimation, fusion node, point-cloud preprocessing, metrics |
+| `yolo_detector` | ONNX YOLOv8 detector and the simulation color detector |
+| `navigation_bridge` | C++: fused detections → validated, expiring Nav2 obstacles |
+| `navigation_bringup` | AMCL, Nav2, costmaps, velocity smoother, Collision Monitor |
+| `fusion_bringup` | Launch files and perception parameters |
+| `fusion_interfaces` | Detection, fusion, sync and metrics messages |
 
-Run only the five implemented deterministic faults:
+Supporting:
 
-```bash
-python3 benchmarks/run_core_faults.py --seed 12014
-```
+| Package | Role |
+|---|---|
+| `warehouse_mujoco`, `warehouse_simulation` | MuJoCo physics, sensors, warehouse world, scripted workers and pallets |
+| `openamrobot_description` | Robot URDF and TF frames |
+| `warehouse_mission_manager` | M01–M04 missions, docking, yielding to people |
+| `kitti_ros2_player` | KITTI playback and calibration |
+| `system_tests` | Launch-level tests |
 
-It measures timestamp delay, calibration perturbation, point-cloud noise,
-density reduction, and lost detection/obstacle expiry. Results and the seed are
-stored in `experiments/gate14_core_faults.json`; behavior is validated through
-outputs and metrics rather than source-text assertions.
+`benchmarks/` holds the scenario probes and results, `training/` the YOLO
+training scripts, `tools/` data and calibration utilities.
 
-## 13. Known limitations
+## Limitations
 
-- The production-matched LiDAR mount is partly occluded by the rear chassis.
-  The integrated demo therefore uses `/scan_filtered`, retaining the forward
-  280 degrees and masking the rear 80-degree self-reflection sector. True
-  360-degree coverage requires a higher physical mount and new TF/extrinsic
-  calibration; disabling the filter at the current height is unsafe.
-- The simulation detector is color-based and exists only for deterministic
-  simulation testing; real images require the ONNX detector and a compatible model.
-- KITTI tests require the separately downloaded dataset; they skip otherwise.
-- Calibration is static during a run. The monitor reports degradation but does
-  not perform online extrinsic recalibration.
-- The bridge represents each detection as a class-sized point-cloud footprint,
-  not a full 3D mesh or tracked object trajectory.
-- Default stale and obstacle timeouts are 0.5 s and 0.75 s; deployments should
-  tune them for sensor rate and braking distance.
-- RViz may emit OpenGL/GLSL warnings or need forced shutdown on some remote or
-  virtualized GPU sessions. Use `use_rviz:=false` for headless operation.
+- **Simulation only.** No real robot or real sensor recording has been run
+  through the full loop.
+- **The simulation detector is color-based.** It finds the worker by color so
+  runs are deterministic; YOLOv8 is used only on KITTI and is the
+  COCO-pretrained model, not one trained for the warehouse.
+- **Fusion accuracy is not yet measured.** The numbers above are rates and
+  latencies; the fused position has not been compared against ground truth
+  (e.g. KITTI 3D labels).
+- **No tracking.** Each frame is fused independently and obstacles carry no
+  velocity, so the robot reacts to where a person is, not where they are going.
+- **Small sample.** The canonical results are 3 runs of one scenario, with the
+  worker placed at a fixed spot.
+- The simulation runs fusion with relaxed settings (120 ms sync tolerance,
+  ≥ 1 LiDAR point per box) compared with the KITTI defaults (50 ms, ≥ 3).
+- The LiDAR mount is partly blocked by the chassis, so navigation masks the
+  rear 80° and uses 280° of the scan.
+- Extrinsic calibration is fixed during a run; drift is detected
+  (`calibration_monitor_node`) but not corrected.
+
+## License
+
+Apache-2.0. Third-party assets are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
