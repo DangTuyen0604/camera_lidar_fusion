@@ -1,13 +1,16 @@
 # Object fusion
 
-Fusion nhận bbox 2D, CameraInfo và point cloud đã đồng bộ. Point LiDAR được đổi
-sang camera frame bằng TF tại đúng timestamp, chiếu qua ma trận `P`, rồi chọn
-các điểm nằm trong phần giữa bbox.
+Fusion takes the 2D boxes, CameraInfo and the synchronized point cloud. LiDAR
+points are moved into the camera frame with TF at the detection timestamp,
+projected through `P`, and the points inside the central part of each box are
+selected.
 
-Các depth được sắp tăng dần và tách thành cụm theo khoảng trống. Cụm hợp lệ gần
-nhất được lọc outlier bằng median absolute deviation; vị trí cuối là median
-theo từng trục. Điều này giảm ảnh hưởng của background phía sau bbox.
+Their depths are sorted and split into clusters at depth gaps. The nearest
+cluster with enough points is filtered for outliers with the median absolute
+deviation; the final position is the per-axis median. This limits the effect
+of background points that fall inside the box.
 
-Output luôn giữ detection gốc. Khi thiếu TF, sai frame, lệch timestamp hoặc
-không đủ điểm, `valid=false` và `lidar_point_count=0`. Consumer không được hiểu
-tọa độ mặc định `(0, 0, 0)` là một vật thể thật.
+The output always keeps the original detection. When TF is missing, the frame
+is wrong, the timestamps are too far apart or there are too few points, the
+result has `valid=false` and `lidar_point_count=0`. Consumers must not read
+the default `(0, 0, 0)` position as a real object.

@@ -1,6 +1,6 @@
-# Chuẩn bị dataset
+# Dataset preparation
 
-KITTI raw sequence mặc định là `2011_09_26_drive_0005_sync`. Dùng:
+The default KITTI raw sequence is `2011_09_26_drive_0005_sync`:
 
 ```bash
 ./tools/download_kitti.sh
@@ -9,9 +9,10 @@ python3 tools/prepare_kitti_sequence.py \
   data/prepared/kitti_0005 --limit 50
 ```
 
-Mỗi frame cần một ảnh PNG trong `image_02/data`, một point cloud `.bin` trong
-`velodyne_points/data`, và hai file timestamp có cùng số dòng. Point cloud
-KITTI là dãy little-endian `float32` theo thứ tự `x, y, z, intensity`.
+Each frame needs a PNG in `image_02/data`, a `.bin` point cloud in
+`velodyne_points/data`, and two timestamp files with the same number of lines.
+A KITTI point cloud is a little-endian `float32` array of `x, y, z, intensity`.
 
-Không commit dataset vào repository. Trước khi chạy demo, kiểm tra frame ID,
-số lượng file, timestamp tăng dần và kích thước ảnh khớp calibration.
+Do not commit the dataset. Before running a demo, check the frame IDs, the file
+counts, that timestamps increase, and that the image size matches the
+calibration.

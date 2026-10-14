@@ -1,13 +1,14 @@
-# Đồng bộ timestamp
+# Timestamp synchronization
 
-`sensor_sync_node` dùng ApproximateTime cho Image, CameraInfo và PointCloud2.
-Mặc định queue là 20 và spread tối đa 50 ms. Bộ ba hợp lệ được phát nguyên
-header sang `/fusion/synced/*`; trạng thái nằm ở `/fusion/sync_status`.
+`sensor_sync_node` uses `ApproximateTime` over Image, CameraInfo and
+PointCloud2. The defaults are a queue of 20 and a maximum spread of 50 ms. A
+valid triple is republished with its original headers on `/fusion/synced/*`;
+status is on `/fusion/sync_status`.
 
-Với KITTI, `rebase_kitti` giữ khoảng thời gian tương đối nhưng đặt frame đầu ở
-thời gian ROS hiện tại. `ros_now` phù hợp demo đơn giản nhưng làm mất timing
-gốc. Timestamp không được quay ngược khi lặp dataset.
+For KITTI, `rebase_kitti` keeps the relative timing but puts the first frame at
+the current ROS time. `ros_now` suits a simple demo but loses the original
+timing. Timestamps never go backwards when the dataset loops.
 
-Theo dõi `camera_lidar_offset_ms`, `synchronized_pairs` và `dropped_messages`.
-Nếu offset có bias cố định, sửa đồng bộ clock hoặc calibration thời gian thay vì
-nới tolerance vô hạn.
+Watch `camera_lidar_offset_ms`, `synchronized_pairs` and `dropped_messages`. If
+the offset has a constant bias, fix the clock synchronization or the time
+calibration instead of widening the tolerance.

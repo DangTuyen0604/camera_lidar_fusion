@@ -10,5 +10,5 @@ clearing rays and an empty cloud so a disappeared pallet cannot become a ghost
 obstacle. Diagnostics expose every rejection and clearing counter.
 
 The warehouse scenario spawns a blocking pallet after the robot enters the
-aisle. The Day-6 test records `/plan` before and after insertion and requires a
+aisle. The system test records `/plan` before and after insertion and requires a
 different path without collision.

@@ -10,5 +10,5 @@ run requires:
 - motion resuming after the worker clears the aisle;
 - zero physical/proximity collision events.
 
-The benchmark records `stop_events` and `person_stop_success`; the final gate
-requires 100% success across all recorded runs.
+The benchmark records `stop_events` and `person_stop_success`; the target is
+100% success across all recorded runs.

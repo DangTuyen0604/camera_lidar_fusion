@@ -6,7 +6,7 @@ The wrappers require ROS 2 Jazzy, Ultralytics, ONNX Runtime and OpenCV.
 
 ## End-to-end round trip
 
-The Day 3 smoke run used the following commands from the repository root:
+A smoke run used the following commands from the repository root:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -48,6 +48,6 @@ python3 training/scripts/export_model.py \
 precision, recall, mAP50 and mAP50-95. `export_model.py` loads the exported
 model with ONNX Runtime and records its input/output shapes and class metadata.
 
-The committed Day 3 configuration is a deliberately small CPU smoke test. Its
+The committed `day3_roundtrip` configuration is a deliberately small CPU smoke test. Its
 metrics verify plumbing and artifact production; they are not a production
 model-quality baseline.
