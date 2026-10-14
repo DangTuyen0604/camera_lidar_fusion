@@ -33,6 +33,8 @@ def generate_test_description():
 
 
 class TestWarehouseEndToEnd(unittest.TestCase):
+    """Run one full M01-M04 mission with live perception and no collision."""
+
     @classmethod
     def setUpClass(cls):
         rclpy.init()

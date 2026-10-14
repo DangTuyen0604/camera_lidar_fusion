@@ -30,6 +30,8 @@ def percentile(values, fraction):
 
 
 class MetricsCollector(Node):
+    """Record latency, rate and safety metrics from the live ROS graph."""
+
     def __init__(self):
         super().__init__('benchmark_metrics_collector')
         self.latencies = []

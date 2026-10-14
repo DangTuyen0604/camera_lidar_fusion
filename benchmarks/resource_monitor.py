@@ -28,6 +28,8 @@ def _descendants(root):
 
 
 class ResourceMonitor:
+    """Sample CPU and RSS of a process tree from /proc."""
+
     def __init__(self, root_pid, interval=0.5):
         self.root_pid = root_pid
         self.interval = interval
