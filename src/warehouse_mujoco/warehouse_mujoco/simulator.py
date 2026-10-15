@@ -59,6 +59,88 @@ class Lidar3dConfig:
     noise_stddev: float = 0.01
 
 
+@dataclass
+class ImuConfig:
+    """
+    Error model of the 6-axis IMU; the defaults are an ideal sensor.
+
+    A sample is the average over the period since the previous one, as a MEMS
+    IMU's internal low-pass and decimation deliver it: the IMU site's mean
+    specific force (dv/dt minus gravity, in the IMU frame) and mean angular
+    rate. MuJoCo's own instantaneous accelerometer is dominated by contact
+    chatter (+-12 m/s^2 spikes on this robot) that a real sensor's filter
+    removes. Sample noise std is density * sqrt(rate / 2). The turn-on bias
+    and the gyro scale error are drawn again at every reset().
+
+    The firmware fields reproduce what the robot's microcontroller does to the
+    chip's output before ROS sees it (linorobot2 IMUInterface): average the
+    gyro over the first boot_calibration_samples at rest and subtract that,
+    quantize to the configured full-scale range, and zero any gyro axis
+    reading below gyro_deadband.
+    """
+
+    gyro_noise_density: float = 0.0       # [rad/s/sqrt(Hz)]
+    accel_noise_density: float = 0.0      # [m/s^2/sqrt(Hz)]
+    gyro_bias_std: float = 0.0            # turn-on bias per axis [rad/s]
+    accel_bias_std: float = 0.0           # [m/s^2]
+    gyro_bias_random_walk: float = 0.0    # [rad/s/sqrt(s)]
+    accel_bias_random_walk: float = 0.0   # [m/s^2/sqrt(s)]
+    gyro_scale_std: float = 0.0           # sensitivity error, fraction
+    boot_calibration_samples: int = 0     # 0: the firmware subtracts no gyro offset
+    gyro_lsb: float = 0.0                 # quantization step [rad/s]; 0: none
+    accel_lsb: float = 0.0                # [m/s^2]
+    gyro_deadband: float = 0.0            # |rate| below this reads 0 [rad/s]
+
+    @classmethod
+    def mpu6500(cls):
+        """
+        Model the OpenAMRobot's IMU: a TDK InvenSense MPU-6500 behind its firmware.
+
+        Chip (PS-MPU-6500A-01, rev 1.3): rate noise 0.01 deg/s/sqrt(Hz),
+        initial zero-rate output +-5 deg/s, sensitivity +-3 %; accelerometer
+        300 ug/sqrt(Hz), zero-g +-60 mg. Tolerances are taken as 2 sigma. The
+        bias random walks are an assumption: the zero-rate / zero-g drift of a
+        ~2 K warm-up per hour (0.24 deg/s/K, 0.64 mg/K).
+
+        Firmware (openamr-platform-fw on linorobot2_hardware, MPU9250 driver):
+        +-250 deg/s and +-2 g ranges (131 LSB/(deg/s), 16384 LSB/g), gyro
+        offset averaged over 40 samples at boot, 0.01 rad/s gyro deadband.
+        """
+        g = 9.80665
+        return cls(gyro_noise_density=math.radians(0.01), accel_noise_density=300e-6 * g,
+                   gyro_bias_std=math.radians(2.5), accel_bias_std=0.030 * g,
+                   gyro_bias_random_walk=1.4e-4, accel_bias_random_walk=2.1e-4,
+                   gyro_scale_std=0.015, boot_calibration_samples=40,
+                   gyro_lsb=math.radians(1.0 / 131.0), accel_lsb=g / 16384.0,
+                   gyro_deadband=0.01)
+
+
+@dataclass
+class EncoderConfig:
+    """
+    Wheel encoder and odometry calibration error; the defaults are exact.
+
+    Odometry converts encoder counts with the nominal wheel radius and track,
+    while the true ones differ by a per-wheel radius error and a track error
+    drawn at every reset() (systematic odometry errors, UMBmark's E_d and E_b).
+    """
+
+    counts_per_revolution: int = 0        # 0: continuous angle
+    radius_error_std: float = 0.0         # per wheel, fraction of the radius
+    track_error_std: float = 0.0          # fraction of the wheel separation
+
+    @classmethod
+    def as5040(cls):
+        """
+        Model the OpenAMRobot's wheel encoders: AMS AS5040, 1024 counts per wheel revolution.
+
+        COUNTS_PER_REV in openamr-platform-fw's lino_base_config.h. Wheel
+        radii within ~0.2 % and the track within ~1 % are assumptions for an
+        uncalibrated robot.
+        """
+        return cls(counts_per_revolution=1024, radius_error_std=0.002, track_error_std=0.01)
+
+
 def yaw_to_quat(yaw):
     return np.array([math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2)])
 
@@ -73,10 +155,12 @@ class WarehouseSim:
 
     def __init__(self, scene_xml, world_sdf=None, model_paths=(), meshdir=None,
                  entity_models=None, pool_size=4, spawn=(0.0, -4.0, 0.0),
-                 drive=None, lidar=None, lidar_3d=None, seed=0):
+                 drive=None, lidar=None, lidar_3d=None, seed=0, imu=None, encoder=None):
         self.drive = drive or DiffDriveConfig()
         self.lidar_cfg = lidar or LidarConfig()
         self.lidar_3d_cfg = lidar_3d
+        self.imu_cfg = imu or ImuConfig()
+        self.encoder_cfg = encoder or EncoderConfig()
         self.rng = np.random.default_rng(seed)
 
         spec = mujoco.MjSpec.from_file(str(scene_xml))
@@ -124,6 +208,7 @@ class WarehouseSim:
 
         self.base_id = self.model.body('base_link').id
         self.lidar_site = self.model.site('lidar').id
+        self.imu_site = self.model.site('imu').id
         joint = self.model.joint('base_free')
         self._qpos = joint.qposadr[0]
         self._qvel = joint.dofadr[0]
@@ -193,10 +278,27 @@ class WarehouseSim:
         self.cmd[:] = 0
         self.applied[:] = 0
         self.odom = np.zeros(3)  # wheel odometry x, y, yaw from spawn
-        self.odom_twist = np.zeros(2)
-        self._wheel_prev = np.array([self.data.qpos[self._left.qposadr[0]],
-                                     self.data.qpos[self._right.qposadr[0]]])
+        # Cumulative odometry travel (distance, yaw): twist = its difference
+        # over a publishing period, as a drive controller derives it from counts.
+        self.odom_travel = np.zeros(2)
+        enc = self.encoder_cfg
+        self.wheel_radius_error = self._normal(enc.radius_error_std, 2)
+        self.track_error = float(self._normal(enc.track_error_std, 1)[0])
         mujoco.mj_forward(self.model, self.data)
+        self._wheel_prev = self._encoder_angles()
+        imu = self.imu_cfg
+        self.gyro_bias = self._normal(imu.gyro_bias_std, 3)
+        self.accel_bias = self._normal(imu.accel_bias_std, 3)
+        self.gyro_scale = 1.0 + self._normal(imu.gyro_scale_std, 3)
+        # Firmware boot calibration: the mean of n gyro samples at rest (one
+        # per publishing period, 50 ms apart) is the turn-on bias plus their
+        # averaged noise; it is subtracted from every later reading.
+        self.gyro_offset = np.zeros(3)
+        if imu.boot_calibration_samples > 0:
+            sample_std = imu.gyro_noise_density * math.sqrt(1.0 / (2.0 * 0.05))
+            self.gyro_offset = self.gyro_bias + self._normal(
+                sample_std / math.sqrt(imu.boot_calibration_samples), 3)
+        self._imu_prev = self._imu_kinematics()
 
     def set_cmd_vel(self, linear, angular):
         d = self.drive
@@ -216,18 +318,30 @@ class WarehouseSim:
             mujoco.mj_step(self.model, self.data)
             self._integrate_odometry(dt)
 
+    def _encoder_angles(self):
+        """Wheel angles as the encoders report them (whole counts)."""
+        angles = np.array([self.data.qpos[self._left.qposadr[0]],
+                           self.data.qpos[self._right.qposadr[0]]])
+        counts = self.encoder_cfg.counts_per_revolution
+        if counts > 0:
+            tick = 2.0 * math.pi / counts
+            angles = np.floor(angles / tick) * tick
+        return angles
+
     def _integrate_odometry(self, dt):
         d = self.drive
-        wheels = np.array([self.data.qpos[self._left.qposadr[0]],
-                           self.data.qpos[self._right.qposadr[0]]])
-        left, right = (wheels - self._wheel_prev) * d.wheel_radius
+        wheels = self._encoder_angles()
+        # Counts -> distance with the radius odometry assumes; the true wheel
+        # differs from it by wheel_radius_error.
+        radius = d.wheel_radius * (1.0 + self.wheel_radius_error)
+        left, right = (wheels - self._wheel_prev) * radius
         self._wheel_prev = wheels
         ds = (left + right) / 2
-        dyaw = (right - left) / d.effective_wheel_separation
+        dyaw = (right - left) / (d.effective_wheel_separation * (1.0 + self.track_error))
         mid = self.odom[2] + dyaw / 2
         self.odom += [ds * math.cos(mid), ds * math.sin(mid), dyaw]
         self.odom[2] = math.atan2(math.sin(self.odom[2]), math.cos(self.odom[2]))
-        self.odom_twist[:] = [ds / dt, dyaw / dt]
+        self.odom_travel += [ds, dyaw]
 
     @property
     def time(self):
@@ -247,10 +361,65 @@ class WarehouseSim:
         return position, velocity
 
     def imu(self):
-        """Return (orientation wxyz, angular velocity, linear acceleration)."""
+        """Return MuJoCo's instantaneous ideal (orientation wxyz, gyro, accelerometer)."""
         sensor = self.data.sensor
         return (sensor('imu_quat').data.copy(), sensor('imu_gyro').data.copy(),
                 sensor('imu_accel').data.copy())
+
+    def _imu_kinematics(self):
+        velocity = np.zeros(6)  # world-aligned [angular, linear] of the IMU site
+        mujoco.mj_objectVelocity(self.model, self.data, mujoco.mjtObj.mjOBJ_SITE,
+                                 self.imu_site, velocity, 0)
+        return (self.data.time, velocity[3:].copy(),
+                self.data.site_xmat[self.imu_site].reshape(3, 3).copy())
+
+    def imu_sample(self):
+        """
+        Return the IMU sample for the period since the previous call.
+
+        (orientation wxyz, angular velocity, specific force), the last two in
+        the IMU frame with ImuConfig's errors applied; the orientation is the
+        true one (a 6-axis IMU outputs none).
+        """
+        now, velocity, rotation = self._imu_kinematics()
+        before, velocity_before, rotation_before = self._imu_prev
+        dt = now - before
+        quat = np.zeros(4)
+        mujoco.mju_mat2Quat(quat, rotation.ravel())
+        if dt <= 0.0:
+            return (quat, self._firmware_gyro(self.gyro_bias.copy()),
+                    self._quantize(rotation.T @ -self.model.opt.gravity + self.accel_bias,
+                                   self.imu_cfg.accel_lsb))
+        self._imu_prev = (now, velocity, rotation)
+        specific_force = rotation.T @ ((velocity - velocity_before) / dt - self.model.opt.gravity)
+        relative = np.zeros(4)
+        mujoco.mju_mat2Quat(relative, (rotation_before.T @ rotation).ravel())
+        rate = np.zeros(3)
+        mujoco.mju_quat2Vel(rate, relative, dt)
+
+        cfg = self.imu_cfg
+        self.gyro_bias += self._normal(cfg.gyro_bias_random_walk * math.sqrt(dt), 3)
+        self.accel_bias += self._normal(cfg.accel_bias_random_walk * math.sqrt(dt), 3)
+        sample_scale = math.sqrt(1.0 / (2.0 * dt))
+        gyro = (self.gyro_scale * rate + self.gyro_bias +
+                self._normal(cfg.gyro_noise_density * sample_scale, 3))
+        accel = (specific_force + self.accel_bias +
+                 self._normal(cfg.accel_noise_density * sample_scale, 3))
+        return quat, self._firmware_gyro(gyro), self._quantize(accel, cfg.accel_lsb)
+
+    def _firmware_gyro(self, gyro):
+        """Quantize, subtract the boot offset and apply the deadband, as the firmware does."""
+        gyro = self._quantize(gyro, self.imu_cfg.gyro_lsb) - self.gyro_offset
+        gyro[np.abs(gyro) < self.imu_cfg.gyro_deadband] = 0.0
+        return gyro
+
+    @staticmethod
+    def _quantize(values, step):
+        return np.round(values / step) * step if step > 0.0 else values
+
+    def _normal(self, std, size):
+        """Zero-mean noise; draws nothing for std 0, so ideal sensors keep the RNG stream."""
+        return self.rng.normal(0.0, std, size) if std > 0.0 else np.zeros(size)
 
     # ----------------------------------------------------------------- sensors
     def scan(self):

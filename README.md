@@ -137,6 +137,7 @@ Supporting:
 | `warehouse_mujoco`, `warehouse_simulation` | MuJoCo physics, sensors, warehouse world, scripted workers and pallets |
 | `openamrobot_description` | Robot URDF and TF frames |
 | `warehouse_mission_manager` | M01–M04 missions, docking, yielding to people |
+| `state_estimation` | C++ wheel + IMU odometry EKF with slip rejection (`odometry:=ekf`, [docs/state_estimation.md](docs/state_estimation.md)) |
 | `kitti_ros2_player` | KITTI playback and calibration |
 | `system_tests` | Launch-level tests |
 

@@ -8,6 +8,13 @@ ROS contract (identical to the former Gazebo server + ros_gz_bridge):
              /ground_truth/odom (extra: world-frame truth for benchmarks)
   services   <ns>/spawn_entity <ns>/set_entity_state <ns>/delete_entity
              (simulation_interfaces, as used by warehouse_scenario_runner)
+
+With an odometry filter (state_estimation), the wheel odometry moves to
+odom_topic:=/wheel/odom and publish_odom_tf:=false; the filter then owns /odom
+and the odom -> base_footprint TF. sensor_errors:=realistic applies the
+OpenAMRobot's sensor models (simulator.ImuConfig.mpu6500,
+EncoderConfig.as5040), drawn from seed, and publishes the IMU at the
+firmware's 50 Hz.
 """
 
 import math
@@ -36,7 +43,8 @@ from std_msgs.msg import Header
 from tf2_msgs.msg import TFMessage
 
 from . import sdf_loader
-from .simulator import Lidar3dConfig, quat_to_yaw, WarehouseSim, yaw_to_quat
+from .simulator import (EncoderConfig, ImuConfig, Lidar3dConfig, quat_to_yaw, WarehouseSim,
+                        yaw_to_quat)
 
 
 # TF root of the URDF: base_footprint sits on the floor, 0.0635 m below
@@ -92,8 +100,17 @@ class MujocoSimNode(Node):
         self.camera_size = (int(p('camera_width', 640).value), int(p('camera_height', 480).value))
         self.camera_hfov = float(p('camera_horizontal_fov', 1.047).value)
         service_ns = p('service_namespace', '/mujoco').value.rstrip('/')
+        odom_topic = p('odom_topic', '/odom').value
+        self.publish_odom_tf = bool(p('publish_odom_tf', True).value)
+        sensor_errors = p('sensor_errors', 'ideal').value
+        if sensor_errors not in ('ideal', 'realistic'):
+            raise ValueError(f'sensor_errors must be ideal or realistic, not {sensor_errors!r}')
+        realistic = sensor_errors == 'realistic'
+        seed = int(p('seed', 0).value)
         rates = {name: float(p(f'{name}_rate', default).value) for name, default in (
-            ('clock', 250.0), ('odom', 50.0), ('joint_states', 50.0), ('imu', 100.0),
+            ('clock', 250.0), ('odom', 50.0), ('joint_states', 50.0),
+            # The robot's firmware reads and publishes its IMU with the odometry, at 50 Hz.
+            ('imu', 50.0 if realistic else 100.0),
             ('scan', 10.0), ('camera', 12.0), ('lidar_3d', 10.0))}
         # 0 channels: no multi-layer LiDAR (planar /scan + /lidar/points only).
         lidar_3d_channels = int(p('lidar_3d_channels', 0).value)
@@ -116,11 +133,18 @@ class MujocoSimNode(Node):
                 self.get_logger().warn(f'No SDF for spawnable model {name!r}; skipped')
         started = time.monotonic()
         self.sim = WarehouseSim(scene, world or None, model_paths, meshdir or None,
-                                entity_models, pool_size, spawn, lidar_3d=lidar_3d)
+                                entity_models, pool_size, spawn, lidar_3d=lidar_3d, seed=seed,
+                                imu=ImuConfig.mpu6500() if realistic else None,
+                                encoder=EncoderConfig.as5040() if realistic else None)
         self.get_logger().info(
             f'MuJoCo {mujoco.__version__} loaded {Path(world).name if world else "empty world"} '
             f'in {time.monotonic() - started:.1f}s; robot at {spawn}; '
-            f'spawnable: {self.sim.entity_models()} x{pool_size}')
+            f'spawnable: {self.sim.entity_models()} x{pool_size}; sensor errors: {sensor_errors}')
+        if realistic:
+            self.get_logger().info(
+                f'Odometry radius errors {self.sim.wheel_radius_error * 100} %, track error '
+                f'{self.sim.track_error * 100:.2f} %, gyro bias '
+                f'{np.degrees(self.sim.gyro_bias[2]):.3f} deg/s (seed {seed})')
 
         self.lock = threading.Lock()
         self.last_cmd_time = None
@@ -130,7 +154,8 @@ class MujocoSimNode(Node):
         group = ReentrantCallbackGroup()
         self.create_subscription(Twist, '/cmd_vel', self._cmd_vel, 10, callback_group=group)
         self.clock_pub = self.create_publisher(Clock, '/clock', 10)
-        self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
+        self.odom_pub = self.create_publisher(Odometry, odom_topic, 10)
+        self._odom_prev = (self.sim.time, self.sim.odom_travel.copy())
         self.truth_pub = self.create_publisher(Odometry, '/ground_truth/odom', 10)
         self.tf_pub = self.create_publisher(TFMessage, '/tf', 100)
         self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
@@ -229,10 +254,13 @@ class MujocoSimNode(Node):
     def _publish_odom(self, stamp):
         sim = self.sim
         x, y, yaw = sim.odom
-        _, wheel_velocity = sim.wheel_state()
-        radius, separation = sim.drive.wheel_radius, sim.drive.effective_wheel_separation
-        linear = radius * (wheel_velocity[0] + wheel_velocity[1]) / 2
-        angular = radius * (wheel_velocity[1] - wheel_velocity[0]) / separation
+        # Twist from the odometry travel since the last message (encoder count
+        # differences), not from the instantaneous wheel speeds.
+        before, travel_before = self._odom_prev
+        elapsed = sim.time - before
+        linear, angular = ((sim.odom_travel - travel_before) / elapsed if elapsed > 0.0
+                           else np.zeros(2))
+        self._odom_prev = (sim.time, sim.odom_travel.copy())
         odom = Odometry()
         odom.header.stamp = stamp
         odom.header.frame_id = 'odom'
@@ -247,13 +275,14 @@ class MujocoSimNode(Node):
             odom.twist.covariance[index] = 1e-4
         self.odom_pub.publish(odom)
 
-        transform = TransformStamped()
-        transform.header = odom.header
-        transform.child_frame_id = BASE_FRAME
-        transform.transform.translation.x = odom.pose.pose.position.x
-        transform.transform.translation.y = odom.pose.pose.position.y
-        transform.transform.rotation = odom.pose.pose.orientation
-        self.tf_pub.publish(TFMessage(transforms=[transform]))
+        if self.publish_odom_tf:
+            transform = TransformStamped()
+            transform.header = odom.header
+            transform.child_frame_id = BASE_FRAME
+            transform.transform.translation.x = odom.pose.pose.position.x
+            transform.transform.translation.y = odom.pose.pose.position.y
+            transform.transform.rotation = odom.pose.pose.orientation
+            self.tf_pub.publish(TFMessage(transforms=[transform]))
 
         truth = Odometry()
         truth.header.stamp = stamp
@@ -279,14 +308,19 @@ class MujocoSimNode(Node):
             position=[float(v) for v in position], velocity=[float(v) for v in velocity]))
 
     def _publish_imu(self, stamp):
-        quat, gyro, accel = self.sim.imu()
+        _, gyro, accel = self.sim.imu_sample()
         imu = Imu(header=self._header(stamp, 'imu_link'))
-        imu.orientation.w, imu.orientation.x, imu.orientation.y, imu.orientation.z = (
-            float(v) for v in quat)
+        # A 6-axis IMU has no orientation output (REP-145: covariance[0] = -1).
+        imu.orientation.w = 1.0
+        imu.orientation_covariance[0] = -1.0
         imu.angular_velocity.x, imu.angular_velocity.y, imu.angular_velocity.z = (
             float(v) for v in gyro)
         imu.linear_acceleration.x, imu.linear_acceleration.y, imu.linear_acceleration.z = (
             float(v) for v in accel)
+        cfg, rate = self.sim.imu_cfg, 1.0 / self.periods['imu']
+        for index in (0, 4, 8):
+            imu.angular_velocity_covariance[index] = cfg.gyro_noise_density ** 2 * rate / 2
+            imu.linear_acceleration_covariance[index] = cfg.accel_noise_density ** 2 * rate / 2
         self.imu_pub.publish(imu)
 
     def _publish_scan(self, stamp):

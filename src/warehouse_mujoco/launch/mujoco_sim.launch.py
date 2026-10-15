@@ -27,6 +27,11 @@ def generate_launch_description():
         ('lidar_3d_channels', '0',
          'Rings of the multi-layer LiDAR on /lidar/points_3d (0 = disabled).'),
         ('spawn_x', '0.0', ''), ('spawn_y', '-4.0', ''), ('spawn_yaw', '0.0', ''),
+        ('odom_topic', '/odom', 'Wheel odometry topic (/wheel/odom under an odometry filter).'),
+        ('publish_odom_tf', 'true', 'Publish odom -> base_footprint from wheel odometry.'),
+        ('sensor_errors', 'ideal',
+         "ideal or realistic (the robot's MPU-6500 IMU and AS5040 encoders)."),
+        ('seed', '0', 'Seed of sensor noise and of the realistic error draws.'),
     ]
     return LaunchDescription([
         *[DeclareLaunchArgument(name, default_value=value, description=text)
@@ -47,6 +52,11 @@ def generate_launch_description():
                 'spawn_x': ParameterValue(LaunchConfiguration('spawn_x'), value_type=float),
                 'spawn_y': ParameterValue(LaunchConfiguration('spawn_y'), value_type=float),
                 'spawn_yaw': ParameterValue(LaunchConfiguration('spawn_yaw'), value_type=float),
+                'odom_topic': LaunchConfiguration('odom_topic'),
+                'publish_odom_tf': ParameterValue(
+                    LaunchConfiguration('publish_odom_tf'), value_type=bool),
+                'sensor_errors': LaunchConfiguration('sensor_errors'),
+                'seed': ParameterValue(LaunchConfiguration('seed'), value_type=int),
                 'use_sim_time': False,
             }]),
         Node(

@@ -1,13 +1,22 @@
-"""Start the MuJoCo warehouse in GUI/headless mode and its deterministic scenario."""
+"""
+Start the MuJoCo warehouse in GUI/headless mode and its deterministic scenario.
+
+odometry selects what owns /odom and odom -> base_footprint:
+  wheel         the simulator's wheel odometry (encoders only)
+  ekf           state_estimation's wheel + IMU filter; wheel odometry on /wheel/odom
+  ekf_no_accel  the same filter without the accelerometer (wheels + gyro)
+On the robot the filter belongs to the robot bringup; here the simulator
+stands in for the robot, so both start together.
+"""
 
 from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, LaunchConfigurationNotEquals
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
 
@@ -22,7 +31,19 @@ def generate_launch_description():
     update_period = LaunchConfiguration('update_period_sec')
     publish_fused_detections = LaunchConfiguration(
         'publish_fused_detections')
+    odometry = LaunchConfiguration('odometry')
+    filtered = PythonExpression(["'", odometry, "' != 'wheel'"])
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'odometry', default_value='wheel',
+            choices=['wheel', 'ekf', 'ekf_no_accel'],
+            description='Source of /odom: wheel odometry or the wheel + IMU EKF.'),
+        DeclareLaunchArgument(
+            'sensor_errors', default_value='ideal', choices=['ideal', 'realistic'],
+            description="realistic: the robot's MPU-6500 IMU and AS5040 encoders, with errors."),
+        DeclareLaunchArgument(
+            'sim_seed', default_value='0',
+            description='Seed of the simulated sensor noise and error draws.'),
         DeclareLaunchArgument(
             'gui', default_value='false',
             description='Open the MuJoCo viewer window.'),
@@ -54,6 +75,21 @@ def generate_launch_description():
                 'spawn_y': '-4.0',
                 'spawn_yaw': '0.0',
                 'lidar_3d_channels': LaunchConfiguration('lidar_3d_channels'),
+                'odom_topic': PythonExpression(
+                    ["'/wheel/odom' if ", filtered, " else '/odom'"]),
+                'publish_odom_tf': PythonExpression(['not ', filtered]),
+                'sensor_errors': LaunchConfiguration('sensor_errors'),
+                'seed': LaunchConfiguration('sim_seed'),
+            }.items()),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(str(
+                Path(get_package_share_directory('state_estimation')) / 'launch' /
+                'wheel_imu_ekf.launch.py')),
+            condition=LaunchConfigurationNotEquals('odometry', 'wheel'),
+            launch_arguments={
+                'use_sim_time': use_sim_time,
+                'use_accelerometer': PythonExpression(
+                    ["'", odometry, "' == 'ekf'"]),
             }.items()),
         Node(package='warehouse_simulation', executable='scenario_runner',
              condition=IfCondition(use_scenario), output='screen',

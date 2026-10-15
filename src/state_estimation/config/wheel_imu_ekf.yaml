@@ -1,0 +1,32 @@
+# WheelImuEkf for the OpenAMRobot: MPU-6500 IMU (PS-MPU-6500A-01 rev 1.3) and
+# AS5040 wheel encoders (1024 counts/rev), both read by the firmware at 50 Hz.
+# The simulator's realistic sensor models use the same values.
+wheel_imu_ekf:
+  ros__parameters:
+    odom_frame: odom
+    base_frame: base_footprint
+    wheel_odom_topic: /wheel/odom
+    imu_topic: /imu
+    output_topic: /odom
+    publish_tf: true
+    gyro_noise_density: 1.75e-4      # 0.01 deg/s/sqrt(Hz)
+    accel_noise_density: 2.94e-3     # 300 ug/sqrt(Hz)
+    accel_vibration: 0.05
+    gyro_bias_random_walk: 1.4e-4
+    accel_bias_random_walk: 1.0e-3
+    gravity: 9.80665
+    pitch_std: 0.0035                # level floor constraint, 0.2 deg
+    initial_speed_std: 0.05
+    initial_gyro_bias_std: 0.0175    # 1 deg/s; the firmware removes the offset at boot
+    initial_accel_bias_std: 0.3      # 30 mg (zero-g +-60 mg as 2 sigma)
+    wheel_speed_std: 0.01             # one encoder count per 20 ms is 0.034 m/s
+    wheel_speed_scale: 0.03
+    stationary_speed: 0.002
+    stationary_yaw_rate: 0.005
+    stationary_yaw_rate_std: 0.002
+    stationary_dwell: 0.25
+    gate_chi2: 10.83                 # 1 dof, p = 0.001
+    min_slip_speed: 0.1
+    max_rejection_time: 5.0
+    max_imu_dt: 0.1
+    use_accelerometer: true

@@ -13,6 +13,7 @@ EXPECTED_LICENSES = {
     'navigation_bringup': 'Apache-2.0',
     'openamrobot_description': 'MIT',
     'perception_core': 'Apache-2.0',
+    'state_estimation': 'Apache-2.0',
     'system_tests': 'Apache-2.0',
     'warehouse_mission_manager': 'Apache-2.0',
     'warehouse_mujoco': 'Apache-2.0',

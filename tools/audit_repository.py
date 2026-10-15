@@ -81,8 +81,8 @@ def main():
             errors.append(f'hard-coded user path: {name}')
 
     packages = list((ROOT / 'src').glob('*/package.xml'))
-    if len(packages) != 12:
-        errors.append(f'expected 12 ROS packages, found {len(packages)}')
+    if len(packages) != 13:
+        errors.append(f'expected 13 ROS packages, found {len(packages)}')
     scenario = (ROOT / 'src/warehouse_simulation/config/scenarios.yaml').read_text()
     if not re.search(r'^seed:\s*\d+', scenario, re.MULTILINE):
         errors.append('warehouse scenario has no deterministic seed')

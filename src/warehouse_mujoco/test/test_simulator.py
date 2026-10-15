@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from warehouse_mujoco import sdf_loader
-from warehouse_mujoco.simulator import Lidar3dConfig, WarehouseSim
+from warehouse_mujoco.simulator import EncoderConfig, ImuConfig, Lidar3dConfig, WarehouseSim
 
 PACKAGE = Path(__file__).resolve().parents[1]
 SRC = PACKAGE.parent
@@ -122,6 +122,61 @@ def test_3d_lidar_sees_floor_and_low_pallet_the_planar_scan_misses():
     # ... but the 0.47 m scan plane passes over it.
     front = sim.scan()[np.argmin(np.abs(sim.lidar_angles))]
     assert front > 3.0
+
+
+@pytest.fixture(scope='module')
+def robot_sensors_sim():
+    """Build a simulator with the OpenAMRobot's sensors (MPU-6500, AS5040 encoders)."""
+    return WarehouseSim(
+        PACKAGE / 'mjcf' / 'scene.xml', WAREHOUSE / 'worlds' / 'warehouse.sdf',
+        [WAREHOUSE / 'models'], MESHES, seed=3, imu=ImuConfig.mpu6500(),
+        encoder=EncoderConfig.as5040())
+
+
+def imu_samples(sim, seconds, period=0.02):
+    samples = []
+    for _ in range(round(seconds / period)):
+        sim.step(round(period / sim.model.opt.timestep))
+        samples.append(sim.imu_sample())
+    return samples
+
+
+def test_mpu6500_firmware_removes_the_boot_offset_and_hides_slow_rotation(robot_sensors_sim):
+    sim = robot_sensors_sim
+    sim.reset(0.0, -5.0, 0.0)
+    # The boot calibration measures the turn-on offset to within its averaged noise...
+    assert np.allclose(sim.gyro_offset, sim.gyro_bias, atol=math.radians(0.05))
+    sim.step(250)
+    sim.imu_sample()
+    resting = imu_samples(sim, 1.0)
+    # ...so at rest the gyro reads exactly 0.
+    assert all(np.all(gyro == 0.0) for _, gyro, _ in resting)
+    lsb = 9.80665 / 16384.0
+    for _, _, accel in resting:
+        assert accel[2] == pytest.approx(9.81, abs=0.3)
+        assert accel[2] / lsb == pytest.approx(round(accel[2] / lsb), abs=1e-6)
+
+    sim.set_cmd_vel(0.0, 0.005)  # 0.29 deg/s: below the 0.01 rad/s deadband
+    imu_samples(sim, 2.0)
+    assert all(gyro[2] == 0.0 for _, gyro, _ in imu_samples(sim, 1.0))
+    sim.set_cmd_vel(0.0, 0.5)
+    imu_samples(sim, 1.5)
+    turning = np.mean([gyro[2] for _, gyro, _ in imu_samples(sim, 1.0)])
+    assert turning == pytest.approx(0.5, rel=0.06)  # +-3 % sensitivity, as 2 sigma
+
+
+def test_as5040_odometry_counts_whole_ticks(robot_sensors_sim):
+    sim = robot_sensors_sim
+    sim.reset(0.0, -5.0, 0.0)
+    tick = 2.0 * math.pi / 1024
+    angles = sim._encoder_angles()
+    assert np.allclose(angles / tick, np.round(angles / tick))
+    sim.set_cmd_vel(0.3, 0.0)
+    sim.step(1000)
+    travelled = sim.odom_travel[0]
+    one_count = tick * sim.drive.wheel_radius
+    assert travelled == pytest.approx(0.3 * 2.0 - 0.09, abs=0.05)  # 0.6 s of acceleration
+    assert one_count == pytest.approx(0.000675, abs=1e-5)
 
 
 def test_entity_pool_lifecycle(sim):
