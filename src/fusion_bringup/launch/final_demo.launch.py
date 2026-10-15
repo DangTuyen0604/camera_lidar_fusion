@@ -14,6 +14,8 @@ Usage:
     ros2 launch fusion_bringup final_demo.launch.py
     ros2 launch fusion_bringup final_demo.launch.py mission:=false \
         use_rviz:=false sim_gui:=false camera_view:=false
+    ros2 launch fusion_bringup final_demo.launch.py detector:=yolo \
+        model_path:=/path/to/model.onnx camera_topic:=/yolo/debug/image
 """
 
 import os
@@ -22,10 +24,20 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
-from launch.conditions import IfCondition, UnlessCondition
+from launch.conditions import (
+    IfCondition, LaunchConfigurationEquals, UnlessCondition)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+# The trained warehouse detector (models/README.md); the source tree is found
+# through the symlinked share directory or, in Docker, /workspace.
+DEFAULT_MODEL = str(next(
+    (path for path in (
+        Path.cwd() / 'models' / 'warehouse_yolov8n.onnx',
+        Path('/workspace/models/warehouse_yolov8n.onnx'))
+     if path.is_file()),
+    Path.cwd() / 'models' / 'warehouse_yolov8n.onnx'))
 
 
 def generate_launch_description():
@@ -60,6 +72,8 @@ def generate_launch_description():
             'use_rviz': use_rviz,
             'sim_gui': sim_gui,
             'mission_autostart': 'true',
+            'detector': LaunchConfiguration('detector'),
+            'model_path': LaunchConfiguration('model_path'),
         }.items(),
     )
 
@@ -88,12 +102,25 @@ def generate_launch_description():
             'sync_tolerance_ms': 120.0,
         }],
     )
-    detector = Node(
+    color_detector = Node(
         package='yolo_detector',
         executable='simulation_color_detector',
         name='simulation_color_detector_node',
         output='screen',
+        condition=LaunchConfigurationEquals('detector', 'color'),
         parameters=[{'use_sim_time': use_sim_time}],
+    )
+    yolo_detector = Node(
+        package='yolo_detector',
+        executable='yolo_detector',
+        name='yolo_detector_node',
+        output='screen',
+        condition=LaunchConfigurationEquals('detector', 'yolo'),
+        parameters=[{
+            'use_sim_time': use_sim_time,
+            'model_path': LaunchConfiguration('model_path'),
+            'image_topic': '/fusion/synced/image',
+        }],
     )
     fusion = Node(
         package='perception_core',
@@ -124,7 +151,8 @@ def generate_launch_description():
     )
     benchmark_path = GroupAction(
         condition=UnlessCondition(mission),
-        actions=[navigation, sensor_sync, detector, fusion, metrics])
+        actions=[navigation, sensor_sync, color_detector, yolo_detector,
+                 fusion, metrics])
 
     camera_view = Node(
         package='yolo_detector',
@@ -158,6 +186,12 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'camera_save_dir', default_value=str(Path.home() / 'camera_dataset'),
             description="Where the camera window's s key saves raw frames."),
+        DeclareLaunchArgument(
+            'detector', default_value='color', choices=['color', 'yolo'],
+            description='2D detector: deterministic color detector or the YOLO ONNX model.'),
+        DeclareLaunchArgument(
+            'model_path', default_value=DEFAULT_MODEL,
+            description='ONNX model used when detector:=yolo.'),
         full_workflow,
         benchmark_path,
         camera_view,

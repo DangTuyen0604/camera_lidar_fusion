@@ -83,6 +83,16 @@ if [[ "$REBUILD_WS" == true || ! -f $ws/install/setup.bash ]]; then
     --build-base $ws/build --install-base $ws/install
 fi
 source $ws/install/setup.bash
+# ROS nodes run /usr/bin/python3, but onnxruntime is only in the image venv.
+# Expose that one package: the whole venv would also put its headless
+# opencv in front of the system one and break the camera window.
+for ort in /opt/fusion-venv/lib/python3*/site-packages/onnxruntime; do
+  if [[ -d $ort ]]; then
+    mkdir -p $ws/python_extra
+    ln -sfn "$ort" $ws/python_extra/onnxruntime
+    export PYTHONPATH="$ws/python_extra:$PYTHONPATH"
+  fi
+done
 exec "$@"
 '
 exec docker run "${run_args[@]}" --entrypoint bash "$image" -c "$inner" bash "${cmd[@]}"

@@ -23,10 +23,19 @@ from launch.actions import (
     IncludeLaunchDescription,
     TimerAction,
 )
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, LaunchConfigurationEquals
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+# The trained warehouse detector (models/README.md); the source tree is found
+# through the symlinked share directory or, in Docker, /workspace.
+DEFAULT_MODEL = str(next(
+    (path for path in (
+        Path.cwd() / 'models' / 'warehouse_yolov8n.onnx',
+        Path('/workspace/models/warehouse_yolov8n.onnx'))
+     if path.is_file()),
+    Path.cwd() / 'models' / 'warehouse_yolov8n.onnx'))
 
 
 def generate_launch_description():
@@ -60,6 +69,12 @@ def generate_launch_description():
     }
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'detector', default_value='color', choices=['color', 'yolo'],
+            description='2D detector: deterministic color detector or the YOLO ONNX model.'),
+        DeclareLaunchArgument(
+            'model_path', default_value=DEFAULT_MODEL,
+            description='ONNX model used when detector:=yolo.'),
         DeclareLaunchArgument(
             'sim_gui', default_value='true',
             description='Open the MuJoCo viewer window.'),
@@ -128,7 +143,20 @@ def generate_launch_description():
             executable='simulation_color_detector',
             name='simulation_color_detector_node',
             output='screen',
+            condition=LaunchConfigurationEquals('detector', 'color'),
             parameters=[{'use_sim_time': use_sim_time}],
+        ),
+        Node(
+            package='yolo_detector',
+            executable='yolo_detector',
+            name='yolo_detector_node',
+            output='screen',
+            condition=LaunchConfigurationEquals('detector', 'yolo'),
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'model_path': LaunchConfiguration('model_path'),
+                'image_topic': '/fusion/synced/image',
+            }],
         ),
         Node(
             package='perception_core',

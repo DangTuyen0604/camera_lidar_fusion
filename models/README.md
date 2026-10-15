@@ -27,5 +27,5 @@ alphabetically); the names are read from the model.
 
 Use it:
 
-    ros2 run yolo_detector yolo_detector_node --ros-args \
+    ros2 run yolo_detector yolo_detector --ros-args \
       -p model_path:=$PWD/models/warehouse_yolov8n.onnx
