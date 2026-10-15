@@ -9,6 +9,12 @@
 #   --gpu            use the NVIDIA GPU (needs nvidia-container-toolkit)
 #   --rebuild-image  rebuild the Docker image (after package.xml/Dockerfile changes)
 #   --rebuild-ws     rerun colcon build before the command
+#
+# The middleware defaults to CycloneDDS; RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+# selects Fast DDS. Every Nav2 bringup hang seen so far (a lifecycle
+# service response that never arrives) was with Fast DDS, and Cyclone also
+# brings the full stack up faster: navigation active after 7.9-8.7 s versus
+# 9.3-11.7 s (10 headless runs each).
 set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -46,12 +52,15 @@ mkdir -p .docker_ws/home
 xhost "+SI:localuser:$(id -un)" >/dev/null
 
 run_args=(
-  --rm --init --net=host --ipc=host
+  # A private /dev/shm: with --ipc=host every run left ~49 Fast DDS shared
+  # memory segments behind on the host.
+  --rm --init --net=host --shm-size=1g
   --user "$(id -u):$(id -g)"
   -e HOME="$ws/home"
   -e ROS_LOG_DIR="$ws/log/ros"
   -e ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-42}"
   -e ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+  -e RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
   -e DISPLAY
   -e MUJOCO_GL=glfw
   -e QT_X11_NO_MITSHM=1
