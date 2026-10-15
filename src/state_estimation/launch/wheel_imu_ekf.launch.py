@@ -15,7 +15,9 @@ def generate_launch_description():
         get_package_share_directory('state_estimation'), 'config', 'wheel_imu_ekf.yaml')
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true'),
-        DeclareLaunchArgument('params_file', default_value=config),
+        # Not 'params_file': launch arguments are global, and that name would
+        # replace Nav2's parameter file when this launch is included.
+        DeclareLaunchArgument('ekf_params_file', default_value=config),
         DeclareLaunchArgument(
             'use_accelerometer', default_value='true',
             description='false: wheels + gyro only (comparison setup).'),
@@ -23,7 +25,7 @@ def generate_launch_description():
             package='state_estimation', executable='wheel_imu_ekf_node',
             name='wheel_imu_ekf', output='screen',
             parameters=[
-                LaunchConfiguration('params_file'),
+                LaunchConfiguration('ekf_params_file'),
                 {'use_sim_time': ParameterValue(
                     LaunchConfiguration('use_sim_time'), value_type=bool),
                  'use_accelerometer': ParameterValue(
