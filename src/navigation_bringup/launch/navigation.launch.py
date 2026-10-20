@@ -45,6 +45,14 @@ def generate_launch_description():
              name='pointcloud_preprocess', output='screen',
              parameters=[LaunchConfiguration('lidar_obstacles_params'),
                          {'use_sim_time': use_sim_time}]),
+        # Orientation of the lidar layers' clearing frustum (lidar_clear in
+        # nav2_params.yaml): lidar_link pitched up 1.1 deg, so a 32.2 deg
+        # frustum spans -15 to +17.2 deg.
+        Node(package='tf2_ros', executable='static_transform_publisher',
+             name='lidar_clear_frame_publisher', output='screen',
+             arguments=['--pitch', '-0.0191', '--frame-id', 'lidar_link',
+                        '--child-frame-id', 'lidar_clear_frame'],
+             parameters=[{'use_sim_time': use_sim_time}]),
         Node(package='nav2_controller', executable='controller_server',
              name='controller_server', output='screen', parameters=common,
              remappings=[('cmd_vel', 'cmd_vel_nav')]),

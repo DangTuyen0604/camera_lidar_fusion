@@ -294,8 +294,18 @@ local_costmap:
           model_type: 1  # 3D LiDAR frustum
           min_z: 0.4     # near/far range of the frustum [m]
           max_z: 6.0
-          vertical_fov_angle: 0.5236   # +-15 deg
-          vertical_fov_offset: 0.0
+          # The beams span +-15 deg, but STVL tests voxel centres: a hit on
+          # the top ring (a worker's chest, a shelf edge) is stored up to
+          # half a voxel above a +15 deg cone, is never cleared, and stays
+          # voxel_decay seconds as a trail. The bottom edge must stay at
+          # -15 deg: below it is the band where the lowest beam has lost a
+          # 0.18 m pallet, and a symmetric +-17.2 deg cone cleared it there
+          # (the robot then pressed into it for 6 s). STVL's cone is
+          # symmetric, so it is tilted instead: lidar_clear_frame
+          # (navigation.launch.py) is lidar_link pitched up 1.1 deg, and
+          # 32.2 deg around it spans -15 to +17.2 deg.
+          sensor_frame: lidar_clear_frame
+          vertical_fov_angle: 0.5618
           horizontal_fov_angle: 6.29
           decay_acceleration: 10.0
           expected_update_rate: 0.0
@@ -425,8 +435,9 @@ global_costmap:
           model_type: 1  # 3D LiDAR frustum
           min_z: 0.4     # near/far range of the frustum [m]
           max_z: 6.0
-          vertical_fov_angle: 0.5236   # +-15 deg
-          vertical_fov_offset: 0.0
+          # Tilted frustum, see local_costmap lidar_clear.
+          sensor_frame: lidar_clear_frame
+          vertical_fov_angle: 0.5618
           horizontal_fov_angle: 6.29
           decay_acceleration: 10.0
           expected_update_rate: 0.0
