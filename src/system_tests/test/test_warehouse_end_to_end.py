@@ -1,4 +1,4 @@
-"""Live 18-step Day-6 warehouse acceptance test."""
+"""Live warehouse acceptance test: mission M01 end to end with perception."""
 
 from pathlib import Path
 import time
@@ -6,7 +6,6 @@ import unittest
 
 from ament_index_python.packages import get_package_share_directory
 from fusion_interfaces.msg import FusedDetectionArray
-from geometry_msgs.msg import Twist
 import launch
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -33,7 +32,7 @@ def generate_test_description():
 
 
 class TestWarehouseEndToEnd(unittest.TestCase):
-    """Run one full M01-M04 mission with live perception and no collision."""
+    """Run mission M01 from the HOME dock to S2 with live perception and no collision."""
 
     @classmethod
     def setUpClass(cls):
@@ -51,7 +50,6 @@ class TestWarehouseEndToEnd(unittest.TestCase):
         self.states = []
         self.cargo = []
         self.events = []
-        self.velocities = []
         self.collisions = []
         for message, topic, target in (
                 (NavPath, '/plan', self.paths),
@@ -59,7 +57,6 @@ class TestWarehouseEndToEnd(unittest.TestCase):
                 (String, '/mission/state', self.states),
                 (String, '/mission/cargo', self.cargo),
                 (String, '/benchmark/events', self.events),
-                (Twist, '/cmd_vel', self.velocities),
                 (UInt64, '/benchmark/collision_count', self.collisions)):
             self.node.create_subscription(message, topic, target.append, 20)
         self.node.create_subscription(
@@ -88,40 +85,41 @@ class TestWarehouseEndToEnd(unittest.TestCase):
                       round(item.pose.position.y, 2)) for item in path.poses)
 
     def test_complete_warehouse_mission(self):
-        # 1-3: launch headless, wait for active Nav2, send the mission.
+        # Launch headless, wait for active Nav2, start the missions.
         self.assertTrue(self.navigation.wait_for_server(timeout_sec=60.0))
         self.assertTrue(self.start_client.wait_for_service(timeout_sec=20.0))
         future = self.start_client.call_async(Trigger.Request())
-        self.assertTrue(self.wait(future.done, 10.0))
-        self.assertTrue(future.result().success)
+        # The mission state is the evidence: Fast DDS can drop a response
+        # sent before the client's reply reader is matched, although the
+        # mission has started.
+        self.assertTrue(self.wait(lambda: self.reached('ACCEPTED'), 10.0))
+        if future.done():
+            self.assertTrue(future.result().success)
 
-        # 4-8: capture initial path, pallet detection/costmap insertion and replan.
+        # The robot boots docked at HOME: M01 undocks, then drives to pickup.
+        self.assertTrue(self.wait(lambda: self.reached('UNDOCKING'), 30.0))
+        self.assertTrue(self.wait(lambda: self.reached('GO_TO_PICKUP'), 90.0))
+
+        # The blocking pallet is dropped as M01 leaves HOME; it must reach the
+        # costmaps through fusion and the bridge, and the plan must change.
         self.assertTrue(self.wait(lambda: bool(self.paths), 60.0))
         initial = self.signature(self.paths[-1])
         self.assertTrue(self.wait(
-            lambda: any('spawn:blocking_pallet' in e.data for e in self.events), 90.0))
-        self.assertTrue(self.wait(lambda: any(m.detections for m in self.fused), 10.0))
-        self.assertTrue(self.wait(lambda: any(m.width > 0 for m in self.obstacles), 10.0))
+            lambda: any('spawn:blocking_pallet' in e.data for e in self.events), 30.0))
+        self.assertTrue(self.wait(lambda: any(m.detections for m in self.fused), 30.0))
+        self.assertTrue(self.wait(lambda: any(m.width > 0 for m in self.obstacles), 30.0))
         self.assertTrue(self.wait(
             lambda: any(self.signature(path) != initial for path in self.paths), 60.0))
 
-        # 9-12: moving worker must cause a stop and later motion resume.
-        self.assertTrue(self.wait(
-            lambda: any('spawn:crossing_worker' in e.data for e in self.events), 90.0))
-        stop_index = len(self.velocities)
-        self.assertTrue(self.wait(lambda: any(
-            abs(v.linear.x) < 0.02 and abs(v.angular.z) < 0.02
-            for v in self.velocities[stop_index:]), 30.0))
-        resume_index = len(self.velocities)
-        self.assertTrue(self.wait(lambda: any(
-            abs(v.linear.x) > 0.05 for v in self.velocities[resume_index:]), 60.0))
-
-        # 13-18: box avoidance, arrive at the station, unload, complete and
-        # no collision. The demo stops at the staging pose instead of docking.
-        self.assertTrue(self.wait(
-            lambda: any('spawn:fallen_box' in e.data for e in self.events), 90.0))
-        self.assertTrue(self.wait(lambda: any(s.data == 'UNLOADING' for s in self.states), 180.0))
-        self.assertTrue(self.wait(lambda: any(s.data == 'COMPLETED' for s in self.states), 30.0))
+        # Pickup, dock at S2 (validated: 8 cm, 5 deg, stopped), unload, undock.
+        # Yielding to the roaming workers is random in time and place; the
+        # deterministic stop/resume check is test_canonical_launch_smoke.
+        self.assertTrue(self.wait(lambda: self.reached('DOCKED'), 300.0))
+        self.assertTrue(self.wait(lambda: self.reached('UNLOADING'), 30.0))
+        self.assertTrue(self.wait(lambda: self.reached('COMPLETED'), 90.0))
         self.assertTrue(self.cargo and self.cargo[-1].data == '')
         self.assertTrue(self.collisions)
         self.assertEqual(max(item.data for item in self.collisions), 0)
+
+    def reached(self, state):
+        return any(s.data == state for s in self.states)

@@ -78,12 +78,14 @@ jobs:
         shell: bash
         run: python3 tools/classify_skips.py
 
+      # --no-tests=error: this step once passed for months selecting 0 tests,
+      # because the launch test was never registered in CMakeLists.txt.
       - name: Run full warehouse end-to-end test
         shell: bash
         run: >-
           ./scripts/run_tests.sh
           --packages-select system_tests
-          --ctest-args -R test_test_warehouse_end_to_end.py
+          --ctest-args -R test_warehouse_end_to_end --no-tests=error
 
       - name: Upload test results on failure
         if: failure()

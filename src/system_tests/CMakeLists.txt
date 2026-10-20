@@ -42,6 +42,9 @@ if(BUILD_TESTING)
   )
   add_launch_test(test/test_perception_pipeline.py TIMEOUT 90)
   add_launch_test(test/test_canonical_launch_smoke.py TIMEOUT 180)
+  # Mission M01 with live perception: undock, pallet replan, dock, unload.
+  # CI runs it as its own step (build-and-test.yml).
+  add_launch_test(test/test_warehouse_end_to_end.py TIMEOUT 900)
 endif()
 
 ament_package()
