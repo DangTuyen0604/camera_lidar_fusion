@@ -117,6 +117,12 @@ amcl:
     # the physical station.
     update_min_d: 0.05
     update_min_a: 0.05
+    # map->odom is stamped scan time + this, and tf2 interpolates between
+    # those stamps, so every consumer applies AMCL's correction this late.
+    # The 1.0 s default held a 5 deg odometry slip at a turn reversal in
+    # map->base for a full second (7 deg error, smeared costmap marks) while
+    # /amcl_pose itself stayed within 0.8 deg. One scan period plus margin.
+    transform_tolerance: 0.2
     max_beams: 180
     laser_model_type: likelihood_field_prob
     laser_likelihood_max_dist: 2.0
@@ -128,7 +134,8 @@ amcl:
     z_hit: 0.90
     z_rand: 0.10
     do_beamskip: true
-    # Measured MuJoCo odometry error is <=2% (in-place spins scrub ~1.8%).
+    # Measured MuJoCo odometry under-reports turns by ~2% in steady spins and
+    # ~4% over a mission (wheels slip when a turn reverses).
     # 0.35 let the particle cloud spread ~35% per turn, so the AMCL yaw
     # wandered during every rotation and the map-frame local costmap smeared
     # walls. Keep a margin over the real error without that wander.
