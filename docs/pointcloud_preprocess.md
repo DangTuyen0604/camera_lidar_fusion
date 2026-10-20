@@ -67,10 +67,17 @@ have a `lidar_layer` (STVL) fed by `/lidar/obstacles`:
 - marking: points 0.05-2.0 m above the floor, i.e. obstacles under the
   0.46 m scan plane such as the 0.18 m blocking pallet, which previously only
   the camera detection layer could see;
-- clearing: a 3D-LiDAR frustum (+-15 deg). Voxels the sensor currently sees
-  but no longer hits decay fast; voxels under the lowest beam (a pallet top
-  closer than ~1.1 m) persist for `voxel_decay` (15 s) instead of vanishing
-  as the robot approaches;
+- clearing: a 3D-LiDAR frustum from -15 to +17.2 deg. Voxels inside it that
+  are no longer hit decay in ~2 s; voxels under the lowest beam (a pallet top
+  closer than ~1.1 m) are outside it and persist for `voxel_decay` instead of
+  vanishing as the robot approaches. The bottom edge must stay at -15 deg: a
+  symmetric +-17.2 deg cone (to clear top-ring hits rounded half a voxel
+  above +15 deg) cleared the pallet and the robot pressed into it. STVL's
+  cone is symmetric, so `lidar_clear_frame` tilts it up 1.1 deg;
+- decay: 15 s in the local costmap, 5 s in the global one. A mark seen from
+  closer than where it was made falls outside the cone too: a worker crossing
+  1 m behind the undocking robot left a 6 m x 1 m wall in the global plan for
+  the full 15 s;
 - near-range filter: `sim_vlp16` drops points within 0.40 m horizontally
   (`crop.min_radius`, the 2D scan's `range_min`). Docked at HOME the station
   face is 0.35 m from the centre; the planar scan never saw it, but oblique
@@ -87,6 +94,17 @@ Full M01-M04 missions (GPU rendering, ground truth from the simulator):
 | docks validated first try | 16/16 | 12/12 |
 | mission time | 346-403 s | 349-350 s |
 | robot touched the blocking pallet | **2/4 runs** (7.5-8.3 s wheel slip) | **0/3**, min clearance 0.66-1.70 m |
+
+Later runs touched it again in two ways, both fixed:
+
+- the symmetric +-17.2 deg clearing cone above (one 6 s contact);
+- the scenario spawned the pallet when the robot entered `aisle_a`, whose
+  edge is 0.4 m from it: once it appeared 17 cm in front of the robot, under
+  every beam, and no sensor could see it. It now drops when M01 leaves HOME,
+  more than 4 m away.
+
+With both fixes, 4 more missions (3 wheel odometry, 1 EKF): 0 contacts, min
+clearance 0.25-0.66 m, 346-359 s.
 
 The node processes the ~14k-point simulated scans in about 4 ms per frame.
 
@@ -128,10 +146,5 @@ Clustering results are identical across all rows (24,991 obstacle points,
 
 - The simulated 16-ring LiDAR is ideal: 1 cm Gaussian range noise, no
   motion distortion, dropouts or reflectivity effects.
-- Leaving the HOME dock is slow and sometimes needs Spin/BackUp recoveries:
-  docked, the robot centre is 3 cm from the dock's inscribed-inflation zone.
-  Runs with the 16-ring layer had 3-5 such recoveries (0-1 before), but an
-  A/B test with the layer disabled at runtime showed the same, so it is not
-  attributed to the layer. Not fixed.
 - The voxel map and each cluster's index list are still allocated per frame.
 - Clusters are axis-aligned boxes, without tracking or classification.

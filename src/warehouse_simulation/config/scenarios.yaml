@@ -74,7 +74,12 @@ scenarios:
     - {action: roam, name: crossing_worker, graph: warehouse_walkways, speed_range: [0.4, 0.8], pause_range: [0.5, 2.0]}
     - {action: spawn, name: station_worker, model: worker, pose: [4.0, 4.6, 0.0, 0.0]}
     - {action: roam, name: station_worker, graph: warehouse_walkways, speed_range: [0.4, 0.8], pause_range: [0.5, 2.0]}
-    - {action: wait_for_robot_region, region: aisle_a}
+    # The 0.18 m pallet sits below the 2D scan plane and, within ~1.1 m,
+    # below the 3D LiDAR's lowest beam. Spawned on entering aisle_a, whose
+    # edge is 0.4 m from it, it appeared 17 cm in front of the robot, where
+    # no sensor can see it, and the robot drove into it. Drop it when M01
+    # leaves HOME, more than 4 m away: still blocking the aisle, but seen.
+    - {action: wait_for_mission_state, state: GO_TO_PICKUP}
     - {action: spawn, name: blocking_pallet, model: pallet, pose: [-4.0, 0.0, 0.10, 0.0]}
     # M02 (S2 -> S3) plans around the north side of the S3 station through
     # (1.4, 4.6). Drop a box onto that lane once the robot is committed to it
