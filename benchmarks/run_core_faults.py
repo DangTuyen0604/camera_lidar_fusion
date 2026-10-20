@@ -27,7 +27,7 @@ def main():
         default=Path('benchmarks/canonical_demo_results.json'))
     parser.add_argument(
         '--output', type=Path,
-        default=Path('experiments/gate14_core_faults.json'))
+        default=Path('experiments/core_faults.json'))
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     faults = load_faults(root)

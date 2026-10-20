@@ -6,8 +6,8 @@ Default (mission:=true), everything the robot does in one command:
     fusion, Nav2 with docking, and the M01-M04 warehouse missions started
     automatically (fusion_bringup/bringup_sim.launch.py).
 
-mission:=false keeps the canonical Gate 11/12 path used by the benchmarks:
-    stage3 navigation plus perception, no mission and no scenario actors, so
+mission:=false keeps the canonical path used by the benchmarks:
+    canonical navigation plus perception, no mission and no scenario actors, so
     an external probe owns the Nav2 goal.
 
 Usage:
@@ -79,7 +79,7 @@ def generate_launch_description():
 
     navigation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            str(navigation_share / 'launch' / 'stage3.launch.py')),
+            str(navigation_share / 'launch' / 'canonical_navigation.launch.py')),
         launch_arguments={
             'use_sim_time': use_sim_time,
             'use_rviz': use_rviz,

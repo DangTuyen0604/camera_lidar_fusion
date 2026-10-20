@@ -1,13 +1,13 @@
-"""Static contracts for the live Gate 11 perception-navigation path."""
+"""Static contracts for the canonical perception-navigation path."""
 
 from contracts import assert_contains, text, yaml_asset
 
 
-def test_gate11_launch_uses_sensor_detection_fusion_and_navigation():
+def test_canonical_launch_uses_sensor_detection_fusion_and_navigation():
     launch = text(
         'fusion_bringup', 'launch/final_demo.launch.py')
     assert_contains(
-        launch, 'stage3.launch.py', 'sensor_sync_node',
+        launch, 'canonical_navigation.launch.py', 'sensor_sync_node',
         'simulation_color_detector', 'object_fusion_node', 'metrics_node')
     assert '/camera/image_raw' in launch
     assert '/lidar/points' in launch
@@ -20,7 +20,7 @@ def test_gate11_launch_uses_sensor_detection_fusion_and_navigation():
 
 def test_collision_monitor_consumes_bridge_output():
     config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+        'navigation_bringup', 'config/nav2_canonical_params.yaml')
     monitor = config['collision_monitor']['ros__parameters']
     assert 'detection_obstacles' in monitor['observation_sources']
     source = monitor['detection_obstacles']

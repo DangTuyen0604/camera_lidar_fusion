@@ -1,4 +1,4 @@
-"""Launch the Stage 3 Nav2 stack with velocity safety enforcement."""
+"""Launch Nav2 for the canonical scenario with velocity safety enforcement."""
 
 from pathlib import Path
 
@@ -28,7 +28,7 @@ def generate_launch_description():
         DeclareLaunchArgument('autostart', default_value='true'),
         DeclareLaunchArgument(
             'params_file',
-            default_value=str(share / 'config' / 'nav2_stage3_params.yaml'),
+            default_value=str(share / 'config' / 'nav2_canonical_params.yaml'),
         ),
         Node(package='nav2_controller', executable='controller_server',
              name='controller_server', output='screen',

@@ -80,10 +80,10 @@ def main():
         default=Path('benchmarks/canonical_demo_results.csv'))
     args = parser.parse_args()
     if args.runs < 3:
-        parser.error('Gate 12 requires at least three consecutive runs')
+        parser.error('the canonical benchmark requires at least three consecutive runs')
 
     root = Path(__file__).resolve().parents[1]
-    probe = root / 'tools' / 'run_gate11_demo.py'
+    probe = root / 'tools' / 'run_canonical_probe.py'
     results = []
     for run_number in range(1, args.runs + 1):
         print(f'RUN {run_number}/{args.runs} seed={args.seed}', flush=True)

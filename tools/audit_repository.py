@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast static repository audit used by Gate 7.1 and CI."""
+"""Fail-fast static repository audit used by scripts/run_audit.sh and CI."""
 
 import argparse
 import os

@@ -50,4 +50,4 @@ if [[ "${1:-}" == '--full' ]]; then
   ./scripts/run_tests.sh
 fi
 
-echo 'Gate 7.1 audit checks completed successfully.'
+echo 'Audit checks completed successfully.'

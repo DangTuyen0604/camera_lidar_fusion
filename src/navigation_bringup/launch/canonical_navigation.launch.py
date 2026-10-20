@@ -1,4 +1,4 @@
-"""Launch Stage 3 localization, Nav2, velocity safety, and RViz."""
+"""Launch the canonical scenario's localization, Nav2, velocity safety and RViz."""
 
 import os
 from pathlib import Path
@@ -22,7 +22,7 @@ def include(package, launch_file, arguments=None):
 
 
 def generate_launch_description():
-    """Start the Stage 2 baseline plus the Stage 3 safety command chain."""
+    """Start localization and Nav2 with the safety command chain."""
     share = Path(get_package_share_directory('navigation_bringup'))
     use_sim_time = LaunchConfiguration('use_sim_time')
     use_rviz = LaunchConfiguration('use_rviz')
@@ -50,7 +50,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'params_file',
-            default_value=str(share / 'config' / 'nav2_stage3_params.yaml'),
+            default_value=str(share / 'config' / 'nav2_canonical_params.yaml'),
         ),
         include('warehouse_simulation', 'warehouse.launch.py', {
             'gui': LaunchConfiguration('sim_gui'),
@@ -86,13 +86,13 @@ def generate_launch_description():
             }),
         ]),
         TimerAction(period=5.0, actions=[
-            include('navigation_bringup', 'navigation_stage3.launch.py', {
+            include('navigation_bringup', 'canonical_nav2.launch.py', {
                 'use_sim_time': use_sim_time,
                 'params_file': params_file,
             }),
             Node(
                 package='rviz2', executable='rviz2', name='rviz2',
-                arguments=['-d', str(share / 'rviz' / 'navigation_stage2.rviz')],
+                arguments=['-d', str(share / 'rviz' / 'canonical.rviz')],
                 parameters=[{'use_sim_time': use_sim_time}],
                 additional_env=gui_environment, output='screen',
                 condition=IfCondition(use_rviz),

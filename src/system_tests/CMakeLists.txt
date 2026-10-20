@@ -20,20 +20,20 @@ if(BUILD_TESTING)
     test/test_navigation_pipeline.py
   )
   ament_add_pytest_test(
-    test_stage3_safety_config
-    test/test_stage3_safety_config.py
+    test_canonical_safety_config
+    test/test_canonical_safety_config.py
   )
   ament_add_pytest_test(
     test_pointcloud_preprocess_profiles
     test/test_pointcloud_preprocess_profiles.py
   )
   ament_add_pytest_test(
-    test_gate12_14_artifacts
-    test/test_gate12_14_artifacts.py
+    test_benchmark_artifacts
+    test/test_benchmark_artifacts.py
   )
   ament_add_pytest_test(
-    test_gate11_pipeline
-    test/test_gate11_pipeline.py
+    test_canonical_pipeline
+    test/test_canonical_pipeline.py
   )
   ament_add_pytest_test(test_fault_injection test/test_fault_injection.py)
   ament_add_pytest_test(

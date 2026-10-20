@@ -35,4 +35,4 @@ faults are measured with deterministic seed `12014` by:
 python3 benchmarks/run_core_faults.py
 ```
 
-Its observable results are stored in `experiments/gate14_core_faults.json`.
+Its observable results are stored in `experiments/core_faults.json`.

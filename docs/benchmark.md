@@ -21,7 +21,7 @@ python3 benchmarks/run_core_faults.py --seed 12014
 
 Measures the effect of a timestamp delay, an extrinsic perturbation,
 point-cloud noise, density reduction and a lost detection. Results:
-`experiments/gate14_core_faults.json`.
+`experiments/core_faults.json`.
 
 ## Scenario matrix
 

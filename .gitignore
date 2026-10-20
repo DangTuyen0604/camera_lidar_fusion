@@ -10,7 +10,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
-.venv-day3/
+.venv-training/
 .coverage
 htmlcov/
 bags/*/

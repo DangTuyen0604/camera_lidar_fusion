@@ -1,4 +1,4 @@
-"""Validate measured Gate 12-14 artifacts, not source-code tokens."""
+"""Validate the committed benchmark results, not source-code tokens."""
 
 import json
 from pathlib import Path
@@ -42,7 +42,7 @@ def test_required_live_metrics_are_positive():
 
 
 def test_core_faults_have_observable_seeded_effects():
-    result = load('experiments/gate14_core_faults.json')
+    result = load('experiments/core_faults.json')
     assert result['seed'] == 12014
     timestamp = result['timestamp_delay']
     assert timestamp['injected_ms'] > timestamp['tolerance_ms']

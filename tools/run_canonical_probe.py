@@ -24,11 +24,11 @@ from sensor_msgs.msg import Image, PointCloud2
 from simulation_interfaces.srv import DeleteEntity, SpawnEntity
 
 
-class Gate11Probe(Node):
-    """Drive one Nav2 goal while recording every Gate 11 pipeline boundary."""
+class CanonicalProbe(Node):
+    """Drive one Nav2 goal while recording every pipeline boundary."""
 
     def __init__(self, seed):
-        super().__init__('gate11_runtime_probe')
+        super().__init__('canonical_runtime_probe')
         self.seed = seed
         self.detections = []
         self.fused = []
@@ -162,7 +162,7 @@ class Gate11Probe(Node):
 
     def spawn_worker(self):
         request = SpawnEntity.Request()
-        request.name = 'gate11_worker'
+        request.name = 'canonical_worker'
         request.uri = (Path(get_package_share_directory('warehouse_simulation')) /
                        'models' / 'worker' / 'model.sdf').as_uri()
         request.initial_pose.header.frame_id = 'world'
@@ -179,7 +179,7 @@ class Gate11Probe(Node):
 
     def delete_worker(self):
         request = DeleteEntity.Request()
-        request.entity = 'gate11_worker'
+        request.entity = 'canonical_worker'
         response = self.call(self.delete_client, request)
         if response.result.result != response.result.RESULT_OK:
             raise RuntimeError(response.result.error_message)
@@ -225,7 +225,7 @@ def main():
     parser.add_argument('--seed', type=int, default=12012)
     args = parser.parse_args()
     rclpy.init()
-    probe = Gate11Probe(args.seed)
+    probe = CanonicalProbe(args.seed)
     spawned = False
     try:
         if not probe.wait(

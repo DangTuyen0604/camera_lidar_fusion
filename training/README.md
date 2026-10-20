@@ -11,36 +11,36 @@ A smoke run used the following commands from the repository root:
 ```bash
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-source .venv-day3/bin/activate
+source .venv-training/bin/activate
 
 python3 training/scripts/extract_images_from_rosbag.py \
-  bags/day3_kitti_0005_complete \
-  training/datasets/day3_roundtrip/source_images \
+  bags/kitti_0005_complete \
+  training/datasets/smoke_roundtrip/source_images \
   --topic /kitti/camera/image_raw --limit 8
 
 # Create matching YOLO .txt annotations in source_labels before splitting.
 python3 training/scripts/validate_labels.py \
-  training/datasets/day3_roundtrip/source_labels \
-  --images training/datasets/day3_roundtrip/source_images --num-classes 3
+  training/datasets/smoke_roundtrip/source_labels \
+  --images training/datasets/smoke_roundtrip/source_images --num-classes 3
 
 python3 training/scripts/split_dataset.py \
-  training/datasets/day3_roundtrip/source_images \
-  training/datasets/day3_roundtrip \
-  --labels training/datasets/day3_roundtrip/source_labels \
+  training/datasets/smoke_roundtrip/source_images \
+  training/datasets/smoke_roundtrip \
+  --labels training/datasets/smoke_roundtrip/source_labels \
   --validation-ratio 0.25 --seed 42 --copy
 
 python3 training/scripts/train_yolo.py \
-  training/configs/day3_roundtrip_training.yaml
+  training/configs/smoke_roundtrip_training.yaml
 
 python3 training/scripts/evaluate_yolo.py \
-  runs/detect/day3_roundtrip/weights/best.pt \
-  training/configs/day3_roundtrip_dataset.yaml \
-  --imgsz 320 --output runs/detect/day3_roundtrip/evaluation.json
+  runs/detect/smoke_roundtrip/weights/best.pt \
+  training/configs/smoke_roundtrip_dataset.yaml \
+  --imgsz 320 --output runs/detect/smoke_roundtrip/evaluation.json
 
 python3 training/scripts/export_model.py \
-  runs/detect/day3_roundtrip/weights/best.pt --format onnx \
+  runs/detect/smoke_roundtrip/weights/best.pt --format onnx \
   --output-metadata \
-  runs/detect/day3_roundtrip/weights/best.metadata.json
+  runs/detect/smoke_roundtrip/weights/best.metadata.json
 ```
 
 `train_yolo.py` writes the exact Ultralytics command to
@@ -48,6 +48,6 @@ python3 training/scripts/export_model.py \
 precision, recall, mAP50 and mAP50-95. `export_model.py` loads the exported
 model with ONNX Runtime and records its input/output shapes and class metadata.
 
-The committed `day3_roundtrip` configuration is a deliberately small CPU smoke test. Its
+The committed `smoke_roundtrip` configuration is a deliberately small CPU smoke test. Its
 metrics verify plumbing and artifact production; they are not a production
 model-quality baseline.

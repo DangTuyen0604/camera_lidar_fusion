@@ -1,4 +1,4 @@
-"""Shared, deterministic contract helpers for Day-6 system tests."""
+"""Shared, deterministic contract helpers for the system tests."""
 
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-"""Semantic configuration checks for the Stage 3 navigation safety chain."""
+"""Semantic configuration checks for the canonical navigation safety chain."""
 
 import ast
 import importlib.util
@@ -7,9 +7,9 @@ from pathlib import Path
 from contracts import package_root, text, yaml_asset
 
 
-def test_stage3_uses_clean_geometry_map():
+def test_canonical_navigation_uses_clean_geometry_map():
     """The MuJoCo demo must not load scan-shadow artifacts from the SLAM map."""
-    launch = text('navigation_bringup', 'launch/stage3.launch.py')
+    launch = text('navigation_bringup', 'launch/canonical_navigation.launch.py')
 
     assert "'maps' / 'warehouse_map.yaml'" in launch
     assert "'maps' / 'warehouse_slam_map.yaml'" not in launch
@@ -18,7 +18,7 @@ def test_stage3_uses_clean_geometry_map():
 def test_geometry_map_initial_pose_matches_warehouse_spawn():
     """AMCL and the simulator must agree on the robot's initial map coordinate."""
     config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+        'navigation_bringup', 'config/nav2_canonical_params.yaml')
     initial = config['amcl']['ros__parameters']['initial_pose']
     warehouse = text(
         'warehouse_simulation', 'launch/warehouse.launch.py')
@@ -137,7 +137,7 @@ def test_warehouse_map_matches_all_physical_docks():
 def test_collision_monitor_owns_final_velocity_command():
     """Collision Monitor must sit between the smoother and simulator command."""
     config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+        'navigation_bringup', 'config/nav2_canonical_params.yaml')
     monitor = config['collision_monitor']['ros__parameters']
     assert monitor['cmd_vel_in_topic'] == 'cmd_vel_smoothed'
     assert monitor['cmd_vel_out_topic'] == 'cmd_vel'
@@ -152,7 +152,7 @@ def test_collision_monitor_owns_final_velocity_command():
 def test_safety_zones_are_ordered_and_actionable():
     """Safety must slow early and project the footprint before collision."""
     config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+        'navigation_bringup', 'config/nav2_canonical_params.yaml')
     monitor = config['collision_monitor']['ros__parameters']
     stop = monitor['StopZone']
     slow = ast.literal_eval(monitor['SlowZone']['points'])
@@ -172,7 +172,7 @@ def test_safety_zones_are_ordered_and_actionable():
 def test_controller_can_turn_onto_replanned_path():
     """RPP must be able to rotate after a dynamic obstacle changes the path."""
     config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+        'navigation_bringup', 'config/nav2_canonical_params.yaml')
     controller = config['controller_server']['ros__parameters']['FollowPath']
 
     assert controller['use_rotate_to_heading'] is True
@@ -191,7 +191,7 @@ def test_detection_observations_do_not_leave_trails():
     is 0, so the 2 Hz planner map still sees every obstacle. A persistence
     window instead re-marks old batches after the bridge's clearing rays ran.
     """
-    config = yaml_asset('navigation_bringup', 'config/nav2_stage3_params.yaml')
+    config = yaml_asset('navigation_bringup', 'config/nav2_canonical_params.yaml')
     for name in ('local_costmap', 'global_costmap'):
         parameters = config[name][name]['ros__parameters']
         layer = parameters['obstacle_layer']
@@ -277,7 +277,7 @@ def test_mission_staging_is_tight_enough_for_docking():
 def test_navigation_consumers_share_the_filtered_lidar():
     """Localization, both costmaps, and safety must use one filtered scan."""
     config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+        'navigation_bringup', 'config/nav2_canonical_params.yaml')
     topics = {
         config['amcl']['ros__parameters']['scan_topic'],
         config['local_costmap']['local_costmap']['ros__parameters'][
@@ -339,10 +339,10 @@ def test_rviz_costmaps_use_latched_nav2_qos():
         'Volatile')
 
 
-def test_all_stage3_lifecycle_nodes_are_managed():
+def test_all_canonical_lifecycle_nodes_are_managed():
     """Every required navigation and safety lifecycle node must autostart."""
     config = yaml_asset(
-        'navigation_bringup', 'config/nav2_stage3_params.yaml')
+        'navigation_bringup', 'config/nav2_canonical_params.yaml')
     manager = config['lifecycle_manager_navigation']['ros__parameters']
     assert manager['autostart'] is True
     assert set(manager['node_names']) == {

@@ -1,4 +1,4 @@
-launch_command: [ros2, launch, system_tests, day6_benchmark.launch.py]
+launch_command: [ros2, launch, system_tests, benchmark_stack.launch.py]
 seed: 42
 startup_timeout_sec: 45
 run_timeout_sec: 150

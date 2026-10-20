@@ -1,4 +1,4 @@
-path: training/datasets/day3_roundtrip
+path: training/datasets/smoke_roundtrip
 train: images/train
 val: images/val
 names:

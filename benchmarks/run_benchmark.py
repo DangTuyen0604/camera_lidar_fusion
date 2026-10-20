@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run every Day-6 scenario against a live ROS graph and write real results."""
+"""Run every scenarios.yaml scenario against a live ROS graph and write real results."""
 
 import argparse
 from pathlib import Path
@@ -19,7 +19,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     if args.runs < 5 and not args.dry_run:
-        parser.error('Gate 6.2 requires at least five live runs per configuration')
+        parser.error('every configuration needs at least five live runs')
     scenarios = load_scenarios(args.config)
     if args.selected:
         scenarios = [item for item in scenarios if item.name in args.selected]
