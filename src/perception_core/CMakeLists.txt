@@ -87,20 +87,6 @@ ament_target_dependencies(
   visualization_msgs
 )
 
-add_executable(lidar_projection_node src/nodes/lidar_projection_node.cpp)
-target_compile_features(lidar_projection_node PUBLIC cxx_std_17)
-target_link_libraries(lidar_projection_node ${PROJECT_NAME}_ros ${OpenCV_LIBRARIES})
-target_include_directories(lidar_projection_node PRIVATE ${OpenCV_INCLUDE_DIRS})
-ament_target_dependencies(
-  lidar_projection_node
-  cv_bridge
-  message_filters
-  rclcpp
-  sensor_msgs
-  tf2
-  tf2_ros
-)
-
 add_executable(calibration_monitor_node src/nodes/calibration_monitor_node.cpp)
 target_compile_features(calibration_monitor_node PUBLIC cxx_std_17)
 target_link_libraries(calibration_monitor_node ${PROJECT_NAME})
@@ -139,7 +125,7 @@ install(
   TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_ros pointcloud_preprocess_component
     pointcloud_preprocess_benchmark
     sensor_sync_node object_fusion_node
-    lidar_projection_node calibration_monitor_node metrics_node
+    calibration_monitor_node metrics_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

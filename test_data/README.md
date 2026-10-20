@@ -5,10 +5,9 @@ Git:
 
 - `calibration/valid_intrinsics.yaml` and `valid_extrinsics.yaml` exercise the
   C++ calibration loader;
-- `calibration/invalid_calibration.yaml` covers malformed input;
-- `images/sample.png` is a 320×120 RGBA image for loader/tool smoke tests;
-- `pointclouds/sample.bin` contains four KITTI-format points encoded as
-  little-endian `float32` records `(x, y, z, intensity)`.
+- `calibration/invalid_calibration.yaml`, `invalid_kitti_calibration.txt` and
+  `wrong_convention.yaml` cover malformed input;
+- `calibration/kitti_calibration.txt` is a KITTI calib file.
 
-These fixtures verify parsing and message conversion only. They are not an
+These fixtures verify parsing only. They are not an
 accuracy or performance dataset.

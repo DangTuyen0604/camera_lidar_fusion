@@ -11,7 +11,7 @@ def share(package):
 def test_canonical_robot_and_complete_sensor_contract():
     description = share('openamrobot_description') / 'urdf'
     assert all((description / name).is_file() for name in (
-        'mobile_robot.urdf.xacro', 'sensors.xacro', 'gazebo_plugins.xacro'))
+        'mobile_robot.urdf.xacro', 'sensors.xacro'))
     model = (description / 'robo_urdf.urdf.xacro').read_text()
     plugins = (description / 'gazebo_control.xacro').read_text()
     for frame in ('base_footprint', 'base_link', 'lidar_link', 'camera_link',

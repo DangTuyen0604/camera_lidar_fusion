@@ -15,8 +15,7 @@ openamrobot_description/
 │   └── visual/                 ← full-detail STL meshes for rendering
 ├── urdf/
 │   ├── robo_urdf.urdf.xacro    ← main robot model (includes camera_link + camera_optical_frame)
-│   ├── gazebo_control.xacro    ← upstream Gazebo plugin parameters (reference for warehouse_mujoco)
-│   └── robot.sdf
+│   └── gazebo_control.xacro    ← upstream Gazebo plugin parameters (reference for warehouse_mujoco)
 ├── package.xml
 └── setup.py
 ```
