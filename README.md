@@ -43,7 +43,15 @@ Two supporting results:
 - **Obstacles below the scan plane.** A 0.18 m pallet is invisible to the
   0.46 m-high planar LiDAR. Adding a simulated 16-ring LiDAR with C++ ground
   removal and a 3D costmap layer took full warehouse missions from robot–pallet
-  contact in 2/4 runs to 0/3 ([docs/pointcloud_preprocess.md](docs/pointcloud_preprocess.md)).
+  contact in 2/4 runs to 0/3. In the latest 4 missions (3 wheel odometry,
+  1 EKF) the robot kept 25–66 cm from it
+  ([docs/pointcloud_preprocess.md](docs/pointcloud_preprocess.md)).
+- **Localization that arrived 1 s late.** Against simulator ground truth over
+  full missions, AMCL's own pose stayed within 0.3° (p95), yet the
+  map→robot transform the costmaps use was off by 3.5° (p95, up to 7°) after
+  the robot reversed a turn. AMCL's default 1 s `transform_tolerance`
+  future-dates each correction, so every consumer applied it a second late
+  and obstacles were smeared across the map. At 0.2 s: 1.4–1.5° (p95).
 - **Preprocessing speed.** Profiling the C++ ground removal and clustering on a
   131k-point synthetic HDL-64 scan cut it from 1645 ms to 21.4 ms per frame
   (build type, hash function, neighbour caching). The scan is synthetic, not
@@ -58,7 +66,7 @@ Two supporting results:
 | 3. Project | Each LiDAR point is moved into the camera frame with TF2 at the image timestamp and projected: `X_c = R_rect · T_cam←lidar · X_l`, `[u v 1]ᵀ ∝ P · X_c`. Points behind the camera or outside the image are dropped. | [`lidar_projector.cpp`](src/perception_core/src/core/lidar_projector.cpp) |
 | 4. Depth per box | Keep points inside the central part of the box, sort by depth, split into clusters at depth gaps, take the nearest cluster with enough points, reject outliers with the median absolute deviation, and report the per-axis median as the object position. Too few points → `valid=false`, never a made-up depth. | [`object_depth_estimator.cpp`](src/perception_core/src/core/object_depth_estimator.cpp), [`object_fusion_node.cpp`](src/perception_core/src/nodes/object_fusion_node.cpp) |
 | 5. Obstacle bridge | Reject invalid, stale (> 0.5 s), future-dated or untransformable detections; transform to `base_link`; publish a class-sized footprint as PointCloud2. After 0.75 s without a detection, publish clearing rays so no ghost obstacle stays behind. | [`detection_obstacle_bridge_node.cpp`](src/navigation_bridge/src/detection_obstacle_bridge_node.cpp) |
-| 6. Nav2 | The obstacle cloud feeds both costmaps and the Collision Monitor. Commands flow `controller_server → velocity_smoother → collision_monitor → /cmd_vel`, so the Collision Monitor has the last word. | [`nav2_stage3_params.yaml`](src/navigation_bringup/config/nav2_stage3_params.yaml) |
+| 6. Nav2 | The obstacle cloud feeds both costmaps and the Collision Monitor. Commands flow `controller_server → velocity_smoother → collision_monitor → /cmd_vel`, so the Collision Monitor has the last word. | [`nav2_canonical_params.yaml`](src/navigation_bringup/config/nav2_canonical_params.yaml) |
 
 More detail: [projection math](docs/projection_math.md),
 [object fusion](docs/object_fusion.md),
@@ -95,7 +103,8 @@ Add `--gpu` for NVIDIA rendering. Details in [docs/docker.md](docs/docker.md).
 
 | Command | What it shows |
 |---|---|
-| `ros2 launch fusion_bringup final_demo.launch.py` | The full warehouse: four-station pick-and-place missions (M01–M04) with docking, the worker scenario, a pallet that blocks an aisle, and live fusion |
+| `ros2 launch fusion_bringup final_demo.launch.py` | The full warehouse: four-station pick-and-place missions (M01–M04) with docking, the worker scenario, a pallet that blocks an aisle, and live fusion. Add `odometry:=ekf` for the wheel + IMU EKF |
+| `ros2 launch fusion_bringup yolo_demo.launch.py` | The same missions with a YOLOv8n trained on warehouse images (`models/best.onnx`, not in the repository, see [models/README.md](models/README.md)) |
 | `ros2 launch fusion_bringup projection_demo.launch.py use_rviz:=true` | LiDAR projected onto KITTI images (`./tools/download_kitti.sh` first) |
 | `./scripts/run_perception_demo.sh` | YOLOv8 ONNX + fusion on KITTI (needs `models/yolov8n-opencv.onnx`, see [models/README.md](models/README.md)) |
 
@@ -148,9 +157,11 @@ training scripts, `tools/` data and calibration utilities.
 
 - **Simulation only.** No real robot or real sensor recording has been run
   through the full loop.
-- **The simulation detector is color-based.** It finds the worker by color so
-  runs are deterministic; YOLOv8 is used only on KITTI and is the
-  COCO-pretrained model, not one trained for the warehouse.
+- **The benchmark detector is color-based.** The canonical results find the
+  worker by color so runs are deterministic. A YOLOv8n trained on warehouse
+  images runs in `yolo_demo.launch.py`, but it has not been benchmarked and
+  its weights are not in the repository; on KITTI the COCO-pretrained model is
+  used.
 - **Fusion accuracy is not yet measured.** The numbers above are rates and
   latencies; the fused position has not been compared against ground truth
   (e.g. KITTI 3D labels).
@@ -160,8 +171,6 @@ training scripts, `tools/` data and calibration utilities.
   worker placed at a fixed spot.
 - The simulation runs fusion with relaxed settings (120 ms sync tolerance,
   ≥ 1 LiDAR point per box) compared with the KITTI defaults (50 ms, ≥ 3).
-- The LiDAR mount is partly blocked by the chassis, so navigation masks the
-  rear 80° and uses 280° of the scan.
 - Extrinsic calibration is fixed during a run; drift is detected
   (`calibration_monitor_node`) but not corrected.
 
