@@ -207,6 +207,16 @@ scenario benchmark (docs/benchmark.md).
 - **Slip detection has limits.** Slips slower than 0.1 m/s are not rejected,
   and a slip longer than 5 s ends in a resynchronization to the slipping
   wheels (the 6 s push in the benchmark).
+- **The vibration model is tuned for a 50 Hz IMU stream.** Driving straight
+  at 0.35 m/s in MuJoCo, the accelerometer still carries 0.46 m/s^2 rms of
+  contact chatter at 50 Hz and 0.76 at 100 Hz, far above `accel_vibration`
+  (0.05). At 100 Hz the gate rejected good wheel speeds as slip during a
+  full mission and the position ran off until AMCL lost the robot; the
+  simulator now publishes 50 Hz in both sensor modes, and then the mission's
+  map->base yaw error is p95 0.44 deg (wheel odometry: 1.38). Raising
+  `accel_vibration` instead is not a fix: at 0.5 the wall push ends 2.78 m
+  off instead of 1.13 m, as bad as the wheels, because slip then looks like
+  vibration.
 - **Simulation only.** The error models follow the robot's datasheets and
   firmware, but the chassis dynamics (rocking, pitch while pushing) are
   MuJoCo's, and the simulated robot's wheel radius and track differ from the

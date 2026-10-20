@@ -36,7 +36,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 | pub | `/clock` | `rosgraph_msgs/Clock` | 250 Hz |
 | pub | `/odom`, `/tf` | `nav_msgs/Odometry`, `odom -> base_footprint` | wheel odometry, 50 Hz |
 | pub | `/joint_states` | `sensor_msgs/JointState` | 50 Hz |
-| pub | `/imu` | `sensor_msgs/Imu` | `imu_link`, 100 Hz |
+| pub | `/imu` | `sensor_msgs/Imu` | `imu_link`, 50 Hz (the robot's firmware rate) |
 | pub | `/scan` | `sensor_msgs/LaserScan` | `lidar_link`, 360 beams, 0.4-10 m, 10 Hz |
 | pub | `/lidar/points` | `sensor_msgs/PointCloud2` | `lidar_link`, 10 Hz |
 | pub | `/camera/image_raw`, `/camera/camera_info` | `rgb8` 640x480, HFOV 1.047 | `camera_optical_frame`, 12 Hz |

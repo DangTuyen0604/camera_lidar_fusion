@@ -109,8 +109,13 @@ class MujocoSimNode(Node):
         seed = int(p('seed', 0).value)
         rates = {name: float(p(f'{name}_rate', default).value) for name, default in (
             ('clock', 250.0), ('odom', 50.0), ('joint_states', 50.0),
-            # The robot's firmware reads and publishes its IMU with the odometry, at 50 Hz.
-            ('imu', 50.0 if realistic else 100.0),
+            # The robot's firmware reads and publishes its IMU with the odometry,
+            # at 50 Hz; ideal sensors only drop the errors, not the rate. Each
+            # sample averages its period: at 100 Hz the contact chatter left in
+            # the accelerometer was 0.76 m/s^2 rms (0.46 at 50 Hz) while
+            # driving straight, and the EKF, tuned for 50 Hz, rejected good
+            # wheel speeds as slip and lost the robot's position.
+            ('imu', 50.0),
             ('scan', 10.0), ('camera', 12.0), ('lidar_3d', 10.0))}
         # 0 channels: no multi-layer LiDAR (planar /scan + /lidar/points only).
         lidar_3d_channels = int(p('lidar_3d_channels', 0).value)
