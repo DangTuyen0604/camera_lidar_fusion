@@ -146,11 +146,12 @@ amcl:
     alpha5: 0.20
     set_initial_pose: true
     always_reset_initial_pose: false
+    # Docked at HOME (warehouse_full_demo.launch.py spawn_yaw).
     initial_pose:
       x: 0.0
       y: -4.0
       z: 0.0
-      yaw: 0.0
+      yaw: 1.57
 
 map_server:
   ros__parameters:

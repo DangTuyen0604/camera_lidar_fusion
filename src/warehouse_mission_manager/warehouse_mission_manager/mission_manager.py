@@ -36,6 +36,7 @@ def navigation_succeeded(response):
 
 class MissionManager(Node):
     DOCK_SETTLE_TIMEOUT = 3.0
+    MAX_UNDOCK_ATTEMPTS = 3
 
     def __init__(self):
         super().__init__('warehouse_mission_manager')
@@ -52,12 +53,18 @@ class MissionManager(Node):
         # pause and continue. true: run the full DockRobot/UndockRobot cycle.
         self.dock_at_stations = bool(
             self.declare_parameter('dock_at_stations', True).value)
+        # The robot boots on this station's dock ('' : anywhere). Docked, the
+        # station face is 3 cm from the body, closer than one costmap cell:
+        # the controller, Spin and BackUp all report a collision and the robot
+        # sat 35-40 s in recoveries. UndockRobot is exempt near the dock.
+        self.start_dock = self.declare_parameter('start_dock', 'HOME').value or None
         self.mission_index = 0
         self.odom = None
         self.collision = False
         self.deadline = None
         self.dock_validation_deadline = None
         self.dock_settle_deadline = None
+        self.undock_failures = 0
         self.cargo = CargoManager()
         self.navigation = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.navigator_state = self.create_client(
@@ -227,11 +234,48 @@ class MissionManager(Node):
 
     def _undocked(self, success):
         if success:
+            self.undock_failures = 0
+            self._transition(MissionState.COMPLETED)
+            return
+        self.undock_failures += 1
+        if self.undock_failures >= self.MAX_UNDOCK_ATTEMPTS:
+            self.get_logger().error(
+                f'[MISSION] Undock failed {self.undock_failures} times; leaving it to navigation')
+            self.undock_failures = 0
             self._transition(MissionState.COMPLETED)
             return
         self.get_logger().error('[MISSION] Undock action reported failure')
         self._transition(MissionState.UNLOADING)
         self.deadline = self.get_clock().now() + Duration(seconds=1.0)
+
+    def _leave_start_dock(self):
+        """Undock first when the mission starts with the robot on start_dock."""
+        pose = self._robot_pose_in_map()
+        if pose is None:
+            return
+        station = self.start_dock
+        target = self.stations[station]
+        dx, dy = pose.position.x - target['x'], pose.position.y - target['y']
+        q = pose.orientation
+        yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        yaw_error = abs(math.atan2(math.sin(yaw - target['yaw']),
+                                   math.cos(yaw - target['yaw'])))
+        if (math.hypot(dx, dy) >= DockingController.POSITION_TOLERANCE or
+                yaw_error >= DockingController.YAW_TOLERANCE):
+            self.get_logger().info(f'[MISSION] Not docked at {station}; no undock needed')
+            self.start_dock = None
+            return
+        self._transition(MissionState.UNDOCKING)
+        if not self.docking.undock_from(station, self._left_start_dock):
+            self.get_logger().warn('Waiting for dock_robot action server')
+            self._transition(MissionState.ACCEPTED)
+
+    def _left_start_dock(self, success):
+        if not success:
+            self.get_logger().error(
+                f'[MISSION] Undock from {self.start_dock} failed; leaving it to navigation')
+        self.start_dock = None
+        self._transition(MissionState.ACCEPTED)
 
     def _validate_docked_pose(self):
         target = self.stations[self.mission['destination']]
@@ -298,6 +342,9 @@ class MissionManager(Node):
         elif self.state == MissionState.ACCEPTED:
             if not self._navigation_ready():
                 return
+            if self.start_dock is not None:
+                self._leave_start_dock()
+                return
             self._transition(MissionState.GO_TO_PICKUP)
             if not self._navigate(self.mission['pickup'], self._pickup_arrived, offset=-0.70):
                 self._transition(MissionState.ACCEPTED)
@@ -325,8 +372,8 @@ class MissionManager(Node):
                 self._transition(MissionState.COMPLETED)
                 return
             self._transition(MissionState.UNDOCKING)
-            if not self.docking.undock(self._undocked):
-                self.get_logger().warn('Waiting for undock_robot action server')
+            if not self.docking.undock_from(self.mission['destination'], self._undocked):
+                self.get_logger().warn('Waiting for dock_robot action server')
                 self._transition(MissionState.UNLOADING)
                 self.deadline = self.get_clock().now() + Duration(seconds=1.0)
         elif self.state == MissionState.COMPLETED:

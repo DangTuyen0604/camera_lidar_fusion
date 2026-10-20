@@ -54,6 +54,10 @@ def generate_launch_description():
             'random_seed': worker_random_seed,
             'update_period_sec': worker_update_period,
             'publish_fused_detections': publish_fused_detections,
+            # Boot on the HOME charger facing it, as every station dock pose
+            # faces its station; the mission undocks first. At yaw 0 the robot
+            # sat sideways against the dock, too close for any planned move.
+            'spawn_yaw': '1.57',
         }),
         # Match the OpenAMRobot reference stack: remove returns from the rear
         # chassis before presenting the live LiDAR scan to RViz.

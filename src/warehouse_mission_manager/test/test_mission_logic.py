@@ -7,6 +7,7 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 import pytest
+from rclpy.time import Time
 from warehouse_mission_manager.cargo_manager import CargoManager
 from warehouse_mission_manager.docking_controller import DockingController
 from warehouse_mission_manager.mission_manager import (
@@ -43,28 +44,39 @@ def test_docking_acceptance_limits():
     assert not DockingController.validate(pose, twist, target, False)
 
 
-def test_undock_returns_to_staging_before_next_mission():
-    callbacks = []
-    goals = []
+def _undock_client(goals, status):
     result_future = SimpleNamespace(add_done_callback=lambda callback: callback(
-        SimpleNamespace(result=lambda: SimpleNamespace(result=SimpleNamespace(
-            success=True, error_code=0, error_msg='')))))
+        SimpleNamespace(result=lambda: SimpleNamespace(
+            status=status,
+            result=SimpleNamespace(success=True, error_code=0, error_msg='')))))
     handle = SimpleNamespace(
         accepted=True, get_result_async=lambda: result_future)
     send_future = SimpleNamespace(add_done_callback=lambda callback: callback(
         SimpleNamespace(result=lambda: handle)))
+    return SimpleNamespace(
+        wait_for_server=lambda timeout_sec: True,
+        send_goal_async=lambda goal: goals.append(goal) or send_future)
+
+
+@pytest.mark.parametrize('status, succeeded', [
+    (GoalStatus.STATUS_SUCCEEDED, True),
+    # Aborted ("Robot is not in the dock") but result.success keeps its
+    # default of true: it must not count as undocked.
+    (GoalStatus.STATUS_ABORTED, False),
+])
+def test_undock_returns_to_staging_before_next_mission(status, succeeded):
+    callbacks = []
+    goals = []
     controller = DockingController.__new__(DockingController)
     controller.node = SimpleNamespace(get_logger=lambda: SimpleNamespace(
         info=lambda *args: None, warn=lambda *args: None,
         error=lambda *args: None))
-    controller.undock_client = SimpleNamespace(
-        wait_for_server=lambda timeout_sec: True,
-        send_goal_async=lambda goal: goals.append(goal) or send_future)
+    controller.undock_client = _undock_client(goals, status)
 
     assert controller.undock(callbacks.append)
     assert goals[0].dock_type == 'warehouse_dock'
     assert goals[0].max_undocking_time == 60.0
-    assert callbacks == [True]
+    assert callbacks == [succeeded]
 
 
 def test_docking_collision_check_frame_matches_rolling_costmap():
@@ -92,6 +104,21 @@ def test_station_and_docking_server_coordinates_match():
         assert docks[name]['frame'] == 'map'
         assert docks[name]['pose'] == [
             station['x'], station['y'], station['yaw']]
+
+
+def test_mission_robot_boots_docked_at_home():
+    root = Path(__file__).parents[2]
+    home = yaml.safe_load((
+        Path(__file__).parents[1] / 'config' / 'stations.yaml').read_text())[
+            'stations']['HOME']
+    initial = yaml.safe_load((
+        root / 'navigation_bringup' / 'config' / 'nav2_params.yaml').read_text())[
+            'amcl']['ros__parameters']['initial_pose']
+    launch = (root / 'navigation_bringup' / 'launch' /
+              'warehouse_full_demo.launch.py').read_text()
+    assert [initial['x'], initial['y'], initial['yaw']] == [
+        home['x'], home['y'], home['yaw']]
+    assert f"'spawn_yaw': '{home['yaw']}'" in launch
 
 
 def test_s2_staging_pose_and_footprint_are_inside_map():
@@ -164,6 +191,69 @@ def test_docking_validation_transforms_odometry_pose_to_map():
     assert DockingController.validate(
         map_pose, odom.twist.twist,
         {'x': -2.0, 'y': 3.5, 'yaw': 0.0}, False)
+
+
+@pytest.mark.parametrize('x, yaw, undocks', [
+    (0.0, 1.57, True),     # booted on the HOME dock
+    (0.0, 1.70, False),    # 7 deg off: not docked
+    (0.5, 1.57, False),    # 0.5 m away: not docked
+])
+def test_mission_starts_by_undocking_only_from_the_start_dock(x, yaw, undocks):
+    pose = SimpleNamespace(
+        position=SimpleNamespace(x=x, y=-4.0),
+        orientation=SimpleNamespace(x=0.0, y=0.0, z=math.sin(yaw / 2), w=math.cos(yaw / 2)))
+    calls, states = [], []
+    fake = SimpleNamespace(
+        start_dock='HOME',
+        stations={'HOME': {'x': 0.0, 'y': -4.0, 'yaw': 1.57}},
+        _robot_pose_in_map=lambda: pose,
+        docking=SimpleNamespace(
+            undock_from=lambda dock_id, callback: calls.append(dock_id) or True),
+        _left_start_dock=lambda success: None,
+        _transition=states.append,
+        get_logger=lambda: SimpleNamespace(info=lambda *args: None, error=lambda *args: None),
+    )
+
+    MissionManager._leave_start_dock(fake)
+    if not undocks:
+        assert fake.start_dock is None and not calls and not states
+        return
+    assert calls == ['HOME'] and states == [MissionState.UNDOCKING]
+    # Success or failure, the mission then goes on from ACCEPTED, once.
+    MissionManager._left_start_dock(fake, False)
+    assert fake.start_dock is None and states[-1] == MissionState.ACCEPTED
+
+
+@pytest.mark.parametrize('dock_ok, undocks', [(True, True), (False, False)])
+def test_undock_from_reseats_the_robot_before_undocking(dock_ok, undocks):
+    calls, results = [], []
+    controller = DockingController.__new__(DockingController)
+    controller.node = SimpleNamespace(get_logger=lambda: SimpleNamespace(warn=lambda *args: None))
+    controller.dock = lambda dock_id, callback: (
+        calls.append(('dock', dock_id)) or callback(dock_ok) or True)
+    controller.undock = lambda callback: calls.append(('undock',)) or callback(True) or True
+
+    assert controller.undock_from('S2_ASSEMBLY', results.append)
+    assert calls[0] == ('dock', 'S2_ASSEMBLY')
+    assert (('undock',) in calls) == undocks
+    assert results == [undocks]
+
+
+def test_failed_undocks_end_after_a_bounded_number_of_attempts():
+    # "Robot is not in the dock" once looped UNLOADING <-> UNDOCKING every
+    # second for good; give up after MAX_UNDOCK_ATTEMPTS and let navigation
+    # leave the station.
+    states = []
+    fake = SimpleNamespace(
+        undock_failures=0, MAX_UNDOCK_ATTEMPTS=MissionManager.MAX_UNDOCK_ATTEMPTS,
+        _transition=states.append,
+        get_clock=lambda: SimpleNamespace(now=lambda: Time()),
+        get_logger=lambda: SimpleNamespace(error=lambda *args: None))
+    for _ in range(MissionManager.MAX_UNDOCK_ATTEMPTS - 1):
+        MissionManager._undocked(fake, False)
+        assert states[-1] == MissionState.UNLOADING
+    MissionManager._undocked(fake, False)
+    assert states[-1] == MissionState.COMPLETED and fake.undock_failures == 0
 
 
 def test_navigation_result_rejects_canceled_and_aborted_goals():

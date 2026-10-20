@@ -4,6 +4,9 @@ M01–M04 form one contiguous loop:
 
 `S1_STORAGE → S2_ASSEMBLY → S3_INSPECTION → S4_PACKAGING → S1_STORAGE`.
 
+The robot starts docked at HOME (`start_dock`); M01 begins by undocking from
+it ([docking.md](docking.md)).
+
 The manager sends `NavigateToPose` goals, waits for loading, owns one cargo ID,
 approaches the destination staging pose, calls `DockRobot`, validates the final
 pose, unloads and publishes `COMPLETED`. State and cargo are observable on

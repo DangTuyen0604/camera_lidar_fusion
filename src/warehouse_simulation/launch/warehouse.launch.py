@@ -47,6 +47,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'gui', default_value='false',
             description='Open the MuJoCo viewer window.'),
+        DeclareLaunchArgument(
+            'spawn_yaw', default_value='0.0',
+            description='Robot heading at (0, -4); 1.57 is docked at HOME.'),
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('use_scenario', default_value='true'),
         DeclareLaunchArgument('enable_roaming', default_value='true'),
@@ -73,7 +76,7 @@ def generate_launch_description():
                 'use_sim_time': use_sim_time,
                 'spawn_x': '0.0',
                 'spawn_y': '-4.0',
-                'spawn_yaw': '0.0',
+                'spawn_yaw': LaunchConfiguration('spawn_yaw'),
                 'lidar_3d_channels': LaunchConfiguration('lidar_3d_channels'),
                 'odom_topic': PythonExpression(
                     ["'/wheel/odom' if ", filtered, " else '/odom'"]),

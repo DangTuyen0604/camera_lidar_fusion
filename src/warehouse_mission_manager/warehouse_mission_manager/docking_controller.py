@@ -1,5 +1,6 @@
 import math
 
+from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import DockRobot, UndockRobot
 from rclpy.action import ActionClient
@@ -44,17 +45,19 @@ class DockingController:
                 try:
                     response = done_result.result()
                     result = response.result
-                    if result.success:
+                    succeeded = succeeded_result(response)
+                    if succeeded:
                         self.node.get_logger().info(
                             f'[MISSION] Dock action completed: {dock_id}; '
                             f'retries={result.num_retries}')
                     else:
                         self.node.get_logger().error(
                             f'[MISSION] Dock action failed: {dock_id}; '
+                            f'status={response.status}, '
                             f'error_code={result.error_code}, '
                             f'retries={result.num_retries}, '
                             f'error={result.error_msg!r}')
-                    result_callback(bool(result.success))
+                    result_callback(succeeded)
                 except Exception as error:
                     self.node.get_logger().error(
                         f'[MISSION] Dock result failed: {error!r}')
@@ -89,16 +92,19 @@ class DockingController:
 
             def completed(done_result):
                 try:
-                    result = done_result.result().result
-                    if result.success:
+                    response = done_result.result()
+                    result = response.result
+                    succeeded = succeeded_result(response)
+                    if succeeded:
                         self.node.get_logger().info(
                             '[MISSION] Undock action completed at staging pose')
                     else:
                         self.node.get_logger().error(
                             '[MISSION] Undock action failed: '
+                            f'status={response.status}, '
                             f'error_code={result.error_code}, '
                             f'error={result.error_msg!r}')
-                    result_callback(bool(result.success))
+                    result_callback(succeeded)
                 except Exception as error:
                     self.node.get_logger().error(
                         f'[MISSION] Undock result failed: {error!r}')
@@ -108,6 +114,25 @@ class DockingController:
 
         future.add_done_callback(accepted)
         return True
+
+    def undock_from(self, dock_id, result_callback):
+        """
+        DockRobot(dock_id), then UndockRobot.
+
+        UndockRobot refuses ("Robot is not in the dock") unless the dock
+        plugin has the dock's pose and sees the robot within its
+        docking_threshold (5 cm). That is stricter than the mission's 8 cm
+        dock contract, and at boot the plugin has no pose at all. DockRobot
+        re-seats the robot first: without moving when it is already within
+        5 cm, with a short approach when it settled further out.
+        """
+        def docked(success):
+            if not success:
+                result_callback(False)
+            elif not self.undock(result_callback):
+                self.node.get_logger().warn('Waiting for undock_robot action server')
+                result_callback(False)
+        return self.dock(dock_id, docked)
 
     @staticmethod
     def validation_errors(pose, twist, target):
@@ -134,6 +159,16 @@ class DockingController:
                 yaw_error < DockingController.YAW_TOLERANCE and
                 speed < DockingController.VELOCITY_TOLERANCE and
                 angular_speed < DockingController.VELOCITY_TOLERANCE)
+
+
+def succeeded_result(response):
+    """
+    Accept only a SUCCEEDED goal reporting success.
+
+    Dock and Undock results default to success=true, so an aborted goal
+    (e.g. "Robot is not in the dock, no need to undock") still carries it.
+    """
+    return response.status == GoalStatus.STATUS_SUCCEEDED and bool(response.result.success)
 
 
 def pose_stamped(node, station, offset=0.0):
