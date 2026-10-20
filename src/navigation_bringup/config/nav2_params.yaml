@@ -392,13 +392,18 @@ global_costmap:
       # perception_core's pointcloud_preprocess, published in lidar_link).
       # They include obstacles under the 0.46 m scan plane, such as the 0.18 m
       # pallet the 2D scan and the obstacle layer never saw. Its lowest beam
-      # loses the pallet top within ~1.1 m, so marks are not decayed quickly:
-      # the 3D-LiDAR frustum clears only what the sensor can currently see,
-      # and marks under the frustum persist for voxel_decay seconds.
+      # loses the pallet top within ~1.1 m; marks the frustum does not cover
+      # persist for voxel_decay seconds.
       lidar_layer:
         plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
         enabled: true
-        voxel_decay: 15.0
+        # Shorter than the local layer's 15 s. The frustum only clears voxels
+        # inside its +-15 deg cone from where the sensor is now, and a mark
+        # seen from closer than where it was made falls outside it: a worker
+        # crossing 1 m behind the robot as it undocked toward them left a
+        # 6 m x 1 m wall in the plan for 15 s. This map only plans paths;
+        # the local costmap keeps the low pallet while the robot is beside it.
+        voxel_decay: 5.0
         decay_model: 0
         voxel_size: 0.05
         track_unknown_space: false
