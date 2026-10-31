@@ -1,0 +1,584 @@
+{
+  "runs": [
+    {
+      "bridge_nonempty_clouds": 127,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.78
+      },
+      "camera_rate_hz": 8.984,
+      "collision_actions": [
+        2,
+        0,
+        1,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.331,
+      "evidence": {
+        "camera_frames": 343,
+        "detections_received": 203,
+        "empty_bridge_heartbeats_after_removal": 96,
+        "fused_messages_received": 203,
+        "localized": true,
+        "nav_paths_received": 33,
+        "pointcloud_frames": 290,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.039,
+        -0.15,
+        0.567
+      ],
+      "fusion_rate_hz": 5.331,
+      "goal_duration_s": 33.695,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 25,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 1.996,
+      "obstacle_reaction_latency_ms": 15.973,
+      "person_detection_latency_ms": 291.997,
+      "person_fusion_latency_ms": 293.216,
+      "pipeline_end_to_end_mean_ms": 106.732,
+      "pointcloud_rate_hz": 7.566,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 1,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.326
+    },
+    {
+      "bridge_nonempty_clouds": 126,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.715
+      },
+      "camera_rate_hz": 9.466,
+      "collision_actions": [
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.587,
+      "evidence": {
+        "camera_frames": 336,
+        "detections_received": 199,
+        "empty_bridge_heartbeats_after_removal": 88,
+        "fused_messages_received": 199,
+        "localized": true,
+        "nav_paths_received": 34,
+        "pointcloud_frames": 284,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.032,
+        -0.15,
+        0.565
+      ],
+      "fusion_rate_hz": 5.586,
+      "goal_duration_s": 33.921,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 24,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 1.991,
+      "obstacle_reaction_latency_ms": 145.359,
+      "person_detection_latency_ms": 186.918,
+      "person_fusion_latency_ms": 189.312,
+      "pipeline_end_to_end_mean_ms": 103.413,
+      "pointcloud_rate_hz": 7.556,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 2,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 19.958
+    },
+    {
+      "bridge_nonempty_clouds": 89,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.797
+      },
+      "camera_rate_hz": 10.099,
+      "collision_actions": [
+        2,
+        1,
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.691,
+      "evidence": {
+        "camera_frames": 366,
+        "detections_received": 207,
+        "empty_bridge_heartbeats_after_removal": 187,
+        "fused_messages_received": 207,
+        "localized": true,
+        "nav_paths_received": 34,
+        "pointcloud_frames": 309,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.063,
+        -0.15,
+        0.565
+      ],
+      "fusion_rate_hz": 5.691,
+      "goal_duration_s": 34.1,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 24,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 1.894,
+      "obstacle_reaction_latency_ms": 107.72,
+      "person_detection_latency_ms": 435.542,
+      "person_fusion_latency_ms": 435.917,
+      "pipeline_end_to_end_mean_ms": 100.019,
+      "pointcloud_rate_hz": 8.11,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 3,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.068
+    },
+    {
+      "bridge_nonempty_clouds": 134,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.715
+      },
+      "camera_rate_hz": 9.065,
+      "collision_actions": [
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.526,
+      "evidence": {
+        "camera_frames": 331,
+        "detections_received": 202,
+        "empty_bridge_heartbeats_after_removal": 89,
+        "fused_messages_received": 202,
+        "localized": true,
+        "nav_paths_received": 35,
+        "pointcloud_frames": 281,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.032,
+        -0.15,
+        0.565
+      ],
+      "fusion_rate_hz": 5.526,
+      "goal_duration_s": 34.878,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 24,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 2.04,
+      "obstacle_reaction_latency_ms": 150.67,
+      "person_detection_latency_ms": 196.272,
+      "person_fusion_latency_ms": 197.406,
+      "pipeline_end_to_end_mean_ms": 105.748,
+      "pointcloud_rate_hz": 7.273,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 4,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.243
+    },
+    {
+      "bridge_nonempty_clouds": 122,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.715
+      },
+      "camera_rate_hz": 8.926,
+      "collision_actions": [
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.227,
+      "evidence": {
+        "camera_frames": 330,
+        "detections_received": 194,
+        "empty_bridge_heartbeats_after_removal": 101,
+        "fused_messages_received": 194,
+        "localized": true,
+        "nav_paths_received": 34,
+        "pointcloud_frames": 283,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.032,
+        -0.15,
+        0.566
+      ],
+      "fusion_rate_hz": 5.227,
+      "goal_duration_s": 34.801,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 24,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 2.253,
+      "obstacle_reaction_latency_ms": 158.324,
+      "person_detection_latency_ms": 236.082,
+      "person_fusion_latency_ms": 238.036,
+      "pipeline_end_to_end_mean_ms": 113.978,
+      "pointcloud_rate_hz": 7.291,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 5,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.255
+    },
+    {
+      "bridge_nonempty_clouds": 120,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.78
+      },
+      "camera_rate_hz": 9.098,
+      "collision_actions": [
+        2,
+        0,
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.148,
+      "evidence": {
+        "camera_frames": 337,
+        "detections_received": 191,
+        "empty_bridge_heartbeats_after_removal": 97,
+        "fused_messages_received": 191,
+        "localized": true,
+        "nav_paths_received": 34,
+        "pointcloud_frames": 284,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.039,
+        -0.15,
+        0.568
+      ],
+      "fusion_rate_hz": 5.148,
+      "goal_duration_s": 34.85,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 25,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 1.837,
+      "obstacle_reaction_latency_ms": 0.362,
+      "person_detection_latency_ms": 263.49,
+      "person_fusion_latency_ms": 264.011,
+      "pipeline_end_to_end_mean_ms": 108.039,
+      "pointcloud_rate_hz": 7.261,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 6,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.227
+    },
+    {
+      "bridge_nonempty_clouds": 139,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.715
+      },
+      "camera_rate_hz": 9.091,
+      "collision_actions": [
+        2,
+        0,
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.65,
+      "evidence": {
+        "camera_frames": 338,
+        "detections_received": 210,
+        "empty_bridge_heartbeats_after_removal": 94,
+        "fused_messages_received": 210,
+        "localized": true,
+        "nav_paths_received": 35,
+        "pointcloud_frames": 287,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.032,
+        -0.15,
+        0.566
+      ],
+      "fusion_rate_hz": 5.65,
+      "goal_duration_s": 35.05,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 24,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 2.204,
+      "obstacle_reaction_latency_ms": 98.761,
+      "person_detection_latency_ms": 279.747,
+      "person_fusion_latency_ms": 280.951,
+      "pipeline_end_to_end_mean_ms": 105.506,
+      "pointcloud_rate_hz": 7.303,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 7,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.449
+    },
+    {
+      "bridge_nonempty_clouds": 130,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.784
+      },
+      "camera_rate_hz": 9.328,
+      "collision_actions": [
+        2,
+        0,
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.736,
+      "evidence": {
+        "camera_frames": 333,
+        "detections_received": 205,
+        "empty_bridge_heartbeats_after_removal": 92,
+        "fused_messages_received": 205,
+        "localized": true,
+        "nav_paths_received": 34,
+        "pointcloud_frames": 281,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.039,
+        -0.15,
+        0.566
+      ],
+      "fusion_rate_hz": 5.736,
+      "goal_duration_s": 34.05,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 25,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 1.927,
+      "obstacle_reaction_latency_ms": 58.376,
+      "person_detection_latency_ms": 288.081,
+      "person_fusion_latency_ms": 289.203,
+      "pipeline_end_to_end_mean_ms": 105.009,
+      "pointcloud_rate_hz": 7.433,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 8,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.033
+    },
+    {
+      "bridge_nonempty_clouds": 137,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.715
+      },
+      "camera_rate_hz": 9.042,
+      "collision_actions": [
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 6.081,
+      "evidence": {
+        "camera_frames": 335,
+        "detections_received": 224,
+        "empty_bridge_heartbeats_after_removal": 96,
+        "fused_messages_received": 224,
+        "localized": true,
+        "nav_paths_received": 35,
+        "pointcloud_frames": 285,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.032,
+        -0.15,
+        0.565
+      ],
+      "fusion_rate_hz": 6.081,
+      "goal_duration_s": 35.321,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 24,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 2.034,
+      "obstacle_reaction_latency_ms": 91.723,
+      "person_detection_latency_ms": 147.807,
+      "person_fusion_latency_ms": 149.238,
+      "pipeline_end_to_end_mean_ms": 104.627,
+      "pointcloud_rate_hz": 7.294,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 9,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.175
+    },
+    {
+      "bridge_nonempty_clouds": 138,
+      "camera_detection": {
+        "class": "person",
+        "confidence": 0.745
+      },
+      "camera_rate_hz": 9.213,
+      "collision_actions": [
+        2,
+        0
+      ],
+      "collision_count": 0,
+      "detected_classes_while_worker_present": [
+        "box",
+        "person"
+      ],
+      "detection_rate_hz": 5.553,
+      "evidence": {
+        "camera_frames": 333,
+        "detections_received": 201,
+        "empty_bridge_heartbeats_after_removal": 89,
+        "fused_messages_received": 201,
+        "localized": true,
+        "nav_paths_received": 34,
+        "pointcloud_frames": 285,
+        "static_map_occupied_cells": 14904
+      },
+      "fused_xyz_camera_optical": [
+        -0.032,
+        -0.15,
+        0.567
+      ],
+      "fusion_rate_hz": 5.553,
+      "goal_duration_s": 33.97,
+      "goal_status": "SUCCEEDED",
+      "lidar_point_count": 24,
+      "max_controller_speed": 0.35,
+      "max_smoothed_speed": 0.35,
+      "minimum_output_speed": 0.0,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "monitor_reacted_before_spawn": false,
+      "obstacle_expiry_s": 1.981,
+      "obstacle_reaction_latency_ms": 124.773,
+      "person_detection_latency_ms": 277.69,
+      "person_fusion_latency_ms": 278.863,
+      "pipeline_end_to_end_mean_ms": 106.069,
+      "pointcloud_rate_hz": 7.452,
+      "reacted_before_person_fused": true,
+      "reaction_action": 2,
+      "result": "PASS",
+      "run": 10,
+      "scenario": "canonical_perception_navigation",
+      "seed": 12012,
+      "sync_delay_mean_ms": 20.318
+    }
+  ],
+  "summary": {
+    "all_successful": true,
+    "consecutive_successes": 10,
+    "detector": "yolo",
+    "mean": {
+      "camera_rate_hz": 9.231,
+      "detection_rate_hz": 5.553,
+      "fusion_rate_hz": 5.553,
+      "goal_duration_s": 34.464,
+      "minimum_robot_obstacle_clearance_m": 1.2,
+      "obstacle_expiry_s": 2.016,
+      "obstacle_reaction_latency_ms": 95.204,
+      "pipeline_end_to_end_mean_ms": 105.914,
+      "pointcloud_rate_hz": 7.454,
+      "sync_delay_mean_ms": 20.205
+    },
+    "runs": 10,
+    "scenario": "canonical_perception_navigation",
+    "seed": 12012
+  }
+}

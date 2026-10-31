@@ -3,15 +3,22 @@
 ## Canonical person-safety scenario
 
 ```bash
-python3 benchmarks/run_canonical_demo.py --runs 3
+python3 benchmarks/run_canonical_demo.py --runs 10 --keep-going
+python3 benchmarks/run_canonical_demo.py --runs 10 --keep-going \
+  --detector yolo --model-path models/best.onnx \
+  --output benchmarks/canonical_demo_results_yolo.json \
+  --csv benchmarks/canonical_demo_results_yolo.csv
 ```
 
 Each run launches `final_demo.launch.py mission:=false` headless, sends a Nav2
 goal, spawns a worker in the robot's path once it moves, waits for detection,
 fusion, a bridge obstacle and a Collision Monitor reaction, removes the worker,
 checks that the obstacle expires, and waits for the goal to succeed. The
-results are `benchmarks/canonical_demo_results.json` and `.csv`; the README
-table is taken from them.
+Collision Monitor also takes the planar scan, so each run records separately
+when the worker itself was detected and fused, and whether the reaction came
+first. The results are `benchmarks/canonical_demo_results.json` and `.csv`
+(`color` detector) and `canonical_demo_results_yolo.json` and `.csv` (`yolo`);
+the README table is taken from them.
 
 ## Fault injection
 

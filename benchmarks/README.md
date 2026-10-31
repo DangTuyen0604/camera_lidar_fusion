@@ -24,11 +24,23 @@ The runner starts a clean MuJoCo/Nav2 graph for every repetition.
 ```bash
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-python3 benchmarks/run_canonical_demo.py --runs 3
+python3 benchmarks/run_canonical_demo.py --runs 10 --keep-going
+python3 benchmarks/run_canonical_demo.py --runs 10 --keep-going \
+  --detector yolo --model-path models/best.onnx \
+  --output benchmarks/canonical_demo_results_yolo.json \
+  --csv benchmarks/canonical_demo_results_yolo.csv
 ```
 
+`--detector` picks the 2D detector (`color` by default, or the `yolo` ONNX
+model); `--keep-going` records a failed run instead of stopping. Besides the
+first reaction of any kind, each run records when the worker itself was first
+detected and fused (`person_detection_latency_ms`, `person_fusion_latency_ms`)
+and whether the Collision Monitor reacted before that
+(`reacted_before_person_fused`), since it also takes the planar scan.
+
 Per-run measurements and their mean are stored in
-`benchmarks/canonical_demo_results.json` and `.csv`. The five implemented core
+`benchmarks/canonical_demo_results.json` and `.csv` (`color`) and
+`canonical_demo_results_yolo.json` and `.csv` (`yolo`). The five implemented core
 faults are measured with deterministic seed `12014` by:
 
 ```bash

@@ -23,6 +23,10 @@ from rclpy.qos import (
 from sensor_msgs.msg import Image, PointCloud2
 from simulation_interfaces.srv import DeleteEntity, SpawnEntity
 
+# The color detector labels the worker 'worker'; the trained YOLO says 'person'.
+# YOLO also reports boxes and pallets, which must not count as seeing the worker.
+PERSON_CLASSES = frozenset({'worker', 'person'})
+
 
 class CanonicalProbe(Node):
     """Drive one Nav2 goal while recording every pipeline boundary."""
@@ -52,6 +56,10 @@ class CanonicalProbe(Node):
         self.first_fusion_at = None
         self.first_obstacle_at = None
         self.first_reaction_at = None
+        self.first_person_detection_at = None
+        self.first_person_fusion_at = None
+        self.detected_classes = set()
+        self.monitor_events = []
         self.worker_removed_at = None
         self.first_empty_after_removal_at = None
         self.goal_started_at = None
@@ -102,6 +110,13 @@ class CanonicalProbe(Node):
         self.detection_times.append(now)
         if message.detections and self.first_detection_at is None:
             self.first_detection_at = now
+        if self.worker_present:
+            self.detected_classes.update(
+                item.class_name for item in message.detections)
+        if (any(item.class_name in PERSON_CLASSES
+                for item in message.detections) and
+                self.first_person_detection_at is None):
+            self.first_person_detection_at = now
 
     def _fusion(self, message):
         now = time.monotonic()
@@ -110,6 +125,10 @@ class CanonicalProbe(Node):
         if (any(item.valid for item in message.detections) and
                 self.first_fusion_at is None):
             self.first_fusion_at = now
+        if (any(item.valid and item.detection.class_name in PERSON_CLASSES
+                for item in message.detections) and
+                self.first_person_fusion_at is None):
+            self.first_person_fusion_at = now
 
     def _obstacle(self, message):
         now = time.monotonic()
@@ -121,11 +140,13 @@ class CanonicalProbe(Node):
             self.first_empty_after_removal_at = now
 
     def _monitor(self, message):
+        now = time.monotonic()
         self.monitor_states.append(message)
+        self.monitor_events.append((now, message.action_type))
         if (message.action_type in (
                 CollisionMonitorState.STOP, CollisionMonitorState.SLOWDOWN) and
                 self.first_reaction_at is None):
-            self.first_reaction_at = time.monotonic()
+            self.first_reaction_at = now
 
     def _sync(self, message):
         self.sync_offsets_ms.append(abs(float(message.camera_lidar_offset_ms)))
@@ -247,6 +268,8 @@ def main():
         probe.first_fusion_at = None
         probe.first_obstacle_at = None
         probe.first_reaction_at = None
+        probe.first_person_detection_at = None
+        probe.first_person_fusion_at = None
         probe.spawn_worker()
         spawned = True
         if not probe.wait(
@@ -261,10 +284,17 @@ def main():
             lambda: probe.first_reaction_at is not None, 15.0)
         if not reacted:
             raise RuntimeError('robot did not react to perception obstacle')
+        # The planar scan also feeds the Collision Monitor, so the reaction can
+        # come before the camera has fused the worker; give fusion time to catch up.
+        probe.wait(lambda: probe.first_person_fusion_at is not None, 5.0)
 
-        valid = next(
+        valid_detections = [
             detection for message in reversed(probe.fused)
-            for detection in message.detections if detection.valid)
+            for detection in message.detections if detection.valid]
+        valid = next(
+            (detection for detection in valid_detections
+             if detection.detection.class_name in PERSON_CLASSES),
+            valid_detections[0])
         probe.delete_worker()
         spawned = False
         obstacle_count = len(probe.obstacles)
@@ -280,6 +310,11 @@ def main():
         goal_finished_at = time.monotonic()
         if not probe.sync_offsets_ms or not probe.pipeline_metrics:
             raise RuntimeError('sync or pipeline metrics were not observed')
+
+        def since_spawn(at):
+            if at is None:
+                return None
+            return round((at - probe.worker_spawned_at) * 1000.0, 3)
 
         trace = {
             'scenario': 'canonical_perception_navigation',
@@ -315,6 +350,23 @@ def main():
             'obstacle_reaction_latency_ms': round(
                 (probe.first_reaction_at - probe.worker_spawned_at) * 1000.0,
                 3),
+            'reaction_action': next(
+                action for at, action in probe.monitor_events
+                if at >= probe.first_reaction_at),
+            'monitor_reacted_before_spawn': any(
+                probe.goal_started_at <= at < probe.worker_spawned_at and
+                action in (CollisionMonitorState.STOP,
+                           CollisionMonitorState.SLOWDOWN)
+                for at, action in probe.monitor_events),
+            'person_detection_latency_ms': since_spawn(
+                probe.first_person_detection_at),
+            'person_fusion_latency_ms': since_spawn(
+                probe.first_person_fusion_at),
+            'reacted_before_person_fused': (
+                probe.first_person_fusion_at is None or
+                probe.first_reaction_at < probe.first_person_fusion_at),
+            'detected_classes_while_worker_present': sorted(
+                probe.detected_classes),
             'camera_rate_hz': round(message_rate(probe.camera_times), 3),
             'pointcloud_rate_hz': round(
                 message_rate(probe.pointcloud_times), 3),

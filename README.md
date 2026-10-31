@@ -4,10 +4,10 @@
 [![Lint](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml/badge.svg)](https://github.com/DangTuyen0604/camera_lidar_fusion/actions/workflows/lint.yml)
 
 A warehouse robot drives toward a goal. A worker steps into the aisle. The
-camera finds the worker, the LiDAR measures how far away they are, the fused
-3D position becomes an obstacle in the Nav2 costmap, and the Collision Monitor
-stops the robot. When the worker leaves, the obstacle expires and the robot
-finishes its goal.
+camera finds the worker, the LiDAR measures how far away they are, and the
+fused 3D position becomes an obstacle in the Nav2 costmaps. The Collision
+Monitor, which also watches the planar scan, slows the robot. When the worker
+leaves, the obstacle expires and the robot finishes its goal.
 
 Everything runs in ROS 2 Jazzy with a MuJoCo warehouse simulation. The fusion
 core is C++ (Eigen, TF2); the same code also runs on KITTI recordings.
@@ -22,21 +22,38 @@ LiDAR ──────────────┘                             
 
 ## Results
 
-Canonical scenario (`benchmarks/run_canonical_demo.py`, seed 12012, 3 runs):
-the robot is given a Nav2 goal, a worker is spawned in its path only after it
-starts moving, then removed once the robot has reacted.
+Canonical scenario (`benchmarks/run_canonical_demo.py`, seed 12012, 10 runs
+per detector, `runtime-cpu` Docker image with NVIDIA rendering): the robot is
+given a Nav2 goal, a worker is spawned 1.2 m ahead only after it starts moving,
+then removed once the robot has reacted. `color` is the deterministic
+simulation detector; `yolo` is the YOLOv8n trained on warehouse images
+(`models/best.onnx`: person, box, pallet), which also detects the boxes on the
+shelves.
 
-| Metric | Mean | Range over 3 runs |
+| Metric: median (range over 10 runs) | `color` | `yolo` |
 |---|---:|---:|
-| Runs that reached the goal without collision | 3/3 | |
-| Worker spawned → Collision Monitor slows/stops the robot | 129 ms | 123–137 ms |
-| Sensor timestamp → fused detection published | 87 ms | 82–90 ms |
-| Camera–LiDAR timestamp offset | 21 ms | 20.9–21.1 ms |
-| Worker removed → obstacle cleared from the costmap | 0.87 s | 0.82–0.95 s |
-| LiDAR points on the worker | | 38–39 |
-| Camera / point cloud / fusion rate | 9.0 / 7.8 / 4.5 Hz | |
+| Runs that reached the goal without collision | 10/10 | 10/10 |
+| Worker spawned → camera detection fused into a 3D position | 172 ms (133–262) | 271 ms (149–436) |
+| Worker spawned → Collision Monitor slows the robot | 102 ms (50–140) | 103 ms (0–158) |
+| Sensor timestamp → fused detection published | 65 ms | 106 ms |
+| Camera–LiDAR timestamp offset | 20 ms | 20 ms |
+| Worker removed → bridge publishes an empty obstacle cloud | 0.80 s (0.75–0.90) | 1.99 s (1.84–2.25) |
+| LiDAR points on the worker | 23–24 | 24–25 |
+| Camera / point cloud / fusion rate | 11.2 / 8.9 / 7.9 Hz | 9.1 / 7.4 / 5.6 Hz |
+| Closest approach to the worker | 1.2 m | 1.2 m |
 
-Raw per-run data: [`benchmarks/canonical_demo_results.json`](benchmarks/canonical_demo_results.json).
+The Collision Monitor takes both the planar scan and the fused obstacles. In
+10/10 `yolo` runs and 9/10 `color` runs it slowed the robot before the camera
+had fused the worker, so that reaction time belongs to the planar LiDAR, not to
+the fusion pipeline; the fastest `yolo` reactions (0.4 and 16 ms) are too quick
+to have been caused by the worker at all. Every reaction was the slow zone's
+slowdown, and the robot never came closer to the worker than where it was when
+the worker appeared. What fusion adds is the class and a class-sized footprint
+in the costmaps.
+
+Raw per-run data: [`canonical_demo_results.json`](benchmarks/canonical_demo_results.json)
+(`color`) and [`canonical_demo_results_yolo.json`](benchmarks/canonical_demo_results_yolo.json)
+(`yolo`).
 
 Two supporting results:
 
@@ -87,8 +104,12 @@ source install/setup.bash
 # The canonical person-safety scenario (MuJoCo viewer + RViz + camera window)
 ros2 launch fusion_bringup final_demo.launch.py mission:=false
 
-# Reproduce the results table (headless, 3 runs)
-python3 benchmarks/run_canonical_demo.py --runs 3
+# Reproduce the results table (headless, 10 runs per detector)
+python3 benchmarks/run_canonical_demo.py --runs 10 --keep-going
+python3 benchmarks/run_canonical_demo.py --runs 10 --keep-going \
+  --detector yolo --model-path models/best.onnx \
+  --output benchmarks/canonical_demo_results_yolo.json \
+  --csv benchmarks/canonical_demo_results_yolo.csv
 ```
 
 ### Any other Linux host (Docker)
