@@ -178,18 +178,17 @@ training scripts, `tools/` data and calibration utilities.
 
 - **Simulation only.** No real robot or real sensor recording has been run
   through the full loop.
-- **The benchmark detector is color-based.** The canonical results find the
-  worker by color so runs are deterministic. A YOLOv8n trained on warehouse
-  images runs in `yolo_demo.launch.py`, but it has not been benchmarked and
-  its weights are not in the repository; on KITTI the COCO-pretrained model is
-  used.
+- **The YOLO weights are not in the repository.** Both detectors are
+  benchmarked above, but the trained YOLOv8n (`models/best.onnx`) is not
+  committed, so the `yolo` column cannot be reproduced from a fresh clone;
+  the `color` column can. On KITTI the COCO-pretrained model is used.
 - **Fusion accuracy is not yet measured.** The numbers above are rates and
   latencies; the fused position has not been compared against ground truth
   (e.g. KITTI 3D labels).
 - **No tracking.** Each frame is fused independently and obstacles carry no
   velocity, so the robot reacts to where a person is, not where they are going.
-- **Small sample.** The canonical results are 3 runs of one scenario, with the
-  worker placed at a fixed spot.
+- **Small sample.** The canonical results are 10 runs per detector of one
+  scenario (seed 12012), with the worker always spawned 1.2 m ahead.
 - The simulation runs fusion with relaxed settings (120 ms sync tolerance,
   ≥ 1 LiDAR point per box) compared with the KITTI defaults (50 ms, ≥ 3).
 - Extrinsic calibration is fixed during a run; drift is detected
